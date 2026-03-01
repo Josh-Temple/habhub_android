@@ -5,15 +5,22 @@ HabHub の Android 版（Jetpack Compose + Room）です。
 ## 現在の実装範囲
 
 - Today 画面（未完了を上、完了を下で表示）
-- Bottom Navigation（Today / History / Settings の画面切替）
-- History 画面（直近の完了件数を日付ごとに表示）
+- Bottom Navigation（Today / Habits / Settings の画面切替）
+- Habits 画面（登録済みハビット一覧 + 編集導線）
 - Settings 画面（通知ON/OFFトグルの基礎UI）
 - 完了トグル（Room の `completion_logs` を更新）
-- ハビット追加ダイアログ（タイトル・通知時刻・Webリンク・アプリリンク）
-- 入力バリデーション（必須タイトル / 時刻形式 / Web URL / アプリリンク）
+- ハビット追加/編集ダイアログ
+  - タイトル
+  - アイコン（固定プリセット30個）
+  - 通知時刻
+  - Webリンク / アプリリンク
+  - 曜日指定（任意）
+  - 開始日（必須）/ 終了日（任意）
+- 入力バリデーション（必須タイトル / 時刻形式 / Web URL / アプリリンク / 日付形式 / 日付範囲）
 - Web / アプリリンク起動（解決可能性チェック + 失敗時 Snackbar）
 - 通知権限リクエスト（Android 13+）
 - リマインダーのスケジューリング基盤（WorkManager + 翌日再スケジュール）
+- 通知条件の考慮（曜日外・期間外は通知しない）
 - Room DB（habits / schedules / links / completion_logs）
 - システムのライト/ダークに追従するミニマルテーマ
 
@@ -27,6 +34,7 @@ HabHub の Android 版（Jetpack Compose + Room）です。
 - `docs/product_wireframe_db_schema.md` : ワイヤー + DBスキーマ設計
 - `docs/execution_plan.md` : 段階的な実行計画
 - `docs/weekly_implementation_tickets.md` : 今週の実装チケット
+- `HANDOFF.md` : セッション引き継ぎ資料
 
 ## 起動手順
 
@@ -38,8 +46,8 @@ HabHub の Android 版（Jetpack Compose + Room）です。
 ## 現時点の既知課題
 
 - この実行環境では Android Gradle Plugin の解決に失敗し、`assembleDebug` が完走しないことがあります。
-- Habit 作成/編集の詳細（曜日ルール、通知アクション、リンク詳細編集）は拡張余地があります。
-- Settings のトグル状態永続化（DataStore など）は次フェーズです。
+- 通知の「ON/OFF」トグル状態はまだ永続化されていません（DataStore などは次フェーズ）。
+- 曜日・期間ルールに基づく通知は対応済みですが、ルール変更時の通知再評価ケース（大量データ時の最適化）は改善余地があります。
 
 ## CI: Debug APK build
 
