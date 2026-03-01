@@ -500,10 +500,7 @@ private fun openLink(context: android.content.Context, payload: String) {
         addCategory(Intent.CATEGORY_BROWSABLE)
     }
 
-    if (intent.resolveActivity(context.packageManager) != null) {
-        context.startActivity(intent)
-        return
-    }
+    if (tryStartActivity(context, intent)) return
 
     if (normalizedPayload.startsWith("intent://", ignoreCase = true)) {
         val browserFallbackUrl = intent.getStringExtra("browser_fallback_url")
@@ -511,14 +508,15 @@ private fun openLink(context: android.content.Context, payload: String) {
             val browserIntent = Intent(Intent.ACTION_VIEW, browserFallbackUrl.toUri()).apply {
                 addCategory(Intent.CATEGORY_BROWSABLE)
             }
-            if (browserIntent.resolveActivity(context.packageManager) != null) {
-                context.startActivity(browserIntent)
-                return
-            }
+            if (tryStartActivity(context, browserIntent)) return
         }
     }
 
     throw ActivityNotFoundException("No handler for $normalizedPayload")
+}
+
+private fun tryStartActivity(context: android.content.Context, intent: Intent): Boolean {
+    return runCatching { context.startActivity(intent) }.isSuccess
 }
 
 private fun maskToDays(mask: Int?): Set<Int> {
