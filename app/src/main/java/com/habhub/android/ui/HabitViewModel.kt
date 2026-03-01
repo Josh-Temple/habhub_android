@@ -1,5 +1,6 @@
 package com.habhub.android.ui
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -88,15 +89,17 @@ class HabitViewModel(
     ) {
         viewModelScope.launch {
             val title = input.title.trim()
+            val normalizedReminderTime = normalizeReminderTime(input.reminderTime)
+            val normalizedWebLink = normalizeWebLink(input.webLink)
             if (title.isBlank()) {
                 _uiState.update { it.copy(inputError = HabitInputError.TITLE) }
                 return@launch
             }
-            if (!input.reminderTime.isNullOrBlank() && !LinkValidator.isValidTime(input.reminderTime)) {
+            if (!normalizedReminderTime.isNullOrBlank() && !LinkValidator.isValidTime(normalizedReminderTime)) {
                 _uiState.update { it.copy(inputError = HabitInputError.TIME) }
                 return@launch
             }
-            if (!input.webLink.isNullOrBlank() && !LinkValidator.isValidWebUrl(input.webLink)) {
+            if (!normalizedWebLink.isNullOrBlank() && !LinkValidator.isValidWebUrl(normalizedWebLink)) {
                 _uiState.update { it.copy(inputError = HabitInputError.WEB) }
                 return@launch
             }
@@ -120,8 +123,8 @@ class HabitViewModel(
             action(
                 input.copy(
                     title = title,
-                    reminderTime = input.reminderTime?.takeIf { it.isNotBlank() },
-                    webLink = input.webLink?.takeIf { it.isNotBlank() },
+                    reminderTime = normalizedReminderTime?.takeIf { it.isNotBlank() },
+                    webLink = normalizedWebLink?.takeIf { it.isNotBlank() },
                     appLink = input.appLink?.takeIf { it.isNotBlank() },
                     endDate = input.endDate?.takeIf { it.isNotBlank() }
                 )
@@ -134,6 +137,25 @@ class HabitViewModel(
 
     private fun isValidDate(value: String): Boolean {
         return runCatching { LocalDate.parse(value) }.isSuccess
+    }
+
+    private fun normalizeReminderTime(value: String?): String? {
+        value ?: return null
+        val trimmed = value.trim()
+        val digits = trimmed.filter(Char::isDigit)
+        return if (digits.length == 4) {
+            "${digits.substring(0, 2)}:${digits.substring(2, 4)}"
+        } else {
+            trimmed
+        }
+    }
+
+    private fun normalizeWebLink(value: String?): String? {
+        value ?: return null
+        val trimmed = value.trim()
+        if (trimmed.isBlank()) return trimmed
+        val scheme = Uri.parse(trimmed).scheme
+        return if (scheme.isNullOrBlank()) "https://$trimmed" else trimmed
     }
 }
 

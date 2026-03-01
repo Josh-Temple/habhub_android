@@ -7,6 +7,10 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import com.habhub.android.ui.HabHubApp
 import com.habhub.android.ui.theme.HabHubTheme
@@ -21,8 +25,14 @@ class MainActivity : ComponentActivity() {
 
         val appContainer = AppContainer(this)
         setContent {
-            HabHubTheme {
-                HabHubApp(factory = appContainer.habitViewModelFactory)
+            var useDarkTheme by rememberSaveable { mutableStateOf(false) }
+
+            HabHubTheme(useDarkTheme = useDarkTheme) {
+                HabHubApp(
+                    factory = appContainer.habitViewModelFactory,
+                    useDarkTheme = useDarkTheme,
+                    onThemeChange = { useDarkTheme = it }
+                )
             }
         }
     }

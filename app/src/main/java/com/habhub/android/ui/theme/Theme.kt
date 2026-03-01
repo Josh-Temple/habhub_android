@@ -27,9 +27,12 @@ private val DarkColors = darkColorScheme(
 )
 
 @Composable
-fun HabHubTheme(content: @Composable () -> Unit) {
+fun HabHubTheme(
+    useDarkTheme: Boolean = isSystemInDarkTheme(),
+    content: @Composable () -> Unit
+) {
     MaterialTheme(
-        colorScheme = if (isSystemInDarkTheme()) DarkColors else LightColors,
+        colorScheme = if (useDarkTheme) DarkColors else LightColors,
         typography = Typography,
         content = content
     )

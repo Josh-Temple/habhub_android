@@ -34,5 +34,6 @@
     <string name="cd_web_link">Open web link</string>
     <string name="cd_app_link">Open app link</string>
     <string name="settings_notifications">Enable notifications</string>
+    <string name="settings_dark_theme">Use dark theme</string>
     <string name="settings_note">Additional settings will be expanded in next iterations.</string>
 </resources>

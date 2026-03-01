@@ -1,42 +1,32 @@
 # HANDOFF
 
 ## 今回の変更概要
-- History タブを Habits タブに置き換え、ハビット編集導線を追加。
-- 追加/編集フォームを統一し、以下を入力可能にした。
-  - アイコン（30プリセット）
-  - 通知時刻
-  - Webリンク / アプリリンク
-  - 曜日指定（任意）
-  - 開始日（必須）/ 終了日（任意）
-- Repository/DAO を拡張し、ハビット編集（update）と links の再保存に対応。
-- 通知スケジューラを拡張し、曜日外・期間外を除外して通知予約。
-- README を最新仕様に更新。
+- Habit行のリンク起動処理を改善し、`intent://` 形式のアプリリンクと通常のWeb/Appリンクの両方を開けるようにした。
+- Settings にライト/ダークテーマ切替トグルを追加し、即時にUIテーマへ反映するようにした。
+- ハビット追加/編集フォームの時刻入力を改善し、`0630` のような4桁数字入力を `06:30` 形式へ自動整形するようにした。
+- ViewModel 側でも保存前に時刻・Web URL の正規化を追加し、入力揺れに強くした。
 
 ## 実装上のポイント
-- 曜日マスクは `Mon=bit0 ... Sun=bit6`。
-- 曜日未指定 (`null`) は「毎日扱い」。
-- `start_date` は必須、`end_date` は任意。
-- Worker 実行後は DB から対象 habit の最新 schedule を再取得して次回通知を再スケジュール。
+- `openLink` で `intent://` の場合は `Intent.parseUri(..., Intent.URI_INTENT_SCHEME)` を利用。
+- それ以外のリンクは `ACTION_VIEW` + `CATEGORY_BROWSABLE` で起動。
+- テーマ切替状態は `MainActivity` の `rememberSaveable` で保持し、`HabHubTheme(useDarkTheme=...)` に渡す。
+- 時刻の4桁数字入力は UI (`normalizeTimeInput`) と ViewModel (`normalizeReminderTime`) の両方でフォーマットする二重防御。
+- Web URL はスキーム未指定時に `https://` を補完する (`normalizeWebLink`)。
 
 ## 主な影響ファイル
+- `app/src/main/java/com/habhub/android/MainActivity.kt`
 - `app/src/main/java/com/habhub/android/ui/HabHubApp.kt`
 - `app/src/main/java/com/habhub/android/ui/HabitViewModel.kt`
-- `app/src/main/java/com/habhub/android/repository/HabitRepository.kt`
-- `app/src/main/java/com/habhub/android/data/HabitDao.kt`
-- `app/src/main/java/com/habhub/android/domain/Model.kt`
-- `app/src/main/java/com/habhub/android/notifications/ReminderScheduler.kt`
-- `app/src/main/java/com/habhub/android/notifications/ReminderWorker.kt`
+- `app/src/main/java/com/habhub/android/ui/theme/Theme.kt`
 - `app/src/main/res/values/strings.xml`
-- `README.md`
 
 ## 未対応/今後の改善案
-- Habit 更新時に `createdAt/sortOrder` を保持していないため、必要なら `HabitEntity` の既存値を取得して維持する。
-- 曜日/期間のバリデーションを ViewModel から usecase 層へ分離するとテスト容易性が上がる。
-- 通知ON/OFFトグル永続化（DataStore）
-- アイコン選択UIを検索付きに改善（候補30件のため）。
+- テーマ設定の永続化（現状はプロセス中のみ保持、DataStore等への保存は未対応）。
+- `intent://` 以外の高度な deep link 形式（fallback URL付き等）のUIガイダンス。
+- 時刻入力を `TextField` ではなく TimePicker ベースにして入力ミスをさらに低減。
 
 ## 確認観点（次セッション）
-1. Habits タブで既存 habit 編集が保存されること。
-2. 曜日指定無し/有りで通知登録の挙動が変わること。
-3. 終了日を過ぎた habit が再スケジュールされないこと。
-4. start/end 日付バリデーションのエラーメッセージ。
+1. 既存ハビットのWebリンク（http/https）をタップしてブラウザ起動できること。
+2. `intent://` 形式のアプリリンクを登録したハビットで該当アプリへ遷移できること。
+3. Settings のテーマ切替スイッチでライト/ダークが即時反映されること。
+4. 追加/編集フォームで `0630` 入力時に `06:30` として保存・表示されること。
