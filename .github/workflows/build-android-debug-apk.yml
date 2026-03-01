@@ -1,0 +1,22 @@
+name: Build Android Debug APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    uses: your-org/Ingrain/.github/workflows/reusable-android-debug-apk.yml@v1
+    with:
+      app_module: app
+      gradle_task: assembleDebug
+      java_version: "17"
+      artifact_name: habhub_android-debug-apk
+      artifact_name_ephemeral: habhub_android-debug-apk-fresh-install-only
+      apk_glob: "**/build/outputs/apk/debug/*.apk"
+      allow_ephemeral_signing: false
+      version_name_prefix: "1.0"
+    secrets:
+      DEBUG_KEYSTORE_BASE64: ${{ secrets.DEBUG_KEYSTORE_BASE64 }}
+      DEBUG_KEYSTORE_PASSWORD: ${{ secrets.DEBUG_KEYSTORE_PASSWORD }}
+      DEBUG_KEY_ALIAS: ${{ secrets.DEBUG_KEY_ALIAS }}
+      DEBUG_KEY_PASSWORD: ${{ secrets.DEBUG_KEY_PASSWORD }}
