@@ -79,6 +79,7 @@ import java.time.LocalDate
 private enum class AppTab { TODAY, HABITS, SETTINGS }
 
 private val weekDayLabels = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+private const val linkOpenTestUrl = "https://developer.android.com"
 
 @Composable
 fun HabHubApp(
@@ -171,7 +172,14 @@ fun HabHubApp(
                     notificationsEnabled = uiState.notificationsEnabled,
                     onNotificationsChange = vm::setNotificationsEnabled,
                     useDarkTheme = useDarkTheme,
-                    onThemeChange = onThemeChange
+                    onThemeChange = onThemeChange,
+                    onOpenTestUrl = {
+                        runCatching {
+                            openLink(context = it, payload = linkOpenTestUrl)
+                        }.onFailure {
+                            scope.launch { snackbarHostState.showSnackbar(it.localizedMessage ?: "") }
+                        }
+                    }
                 )
             }
 
@@ -311,8 +319,11 @@ private fun SettingsContent(
     notificationsEnabled: Boolean,
     onNotificationsChange: (Boolean) -> Unit,
     useDarkTheme: Boolean,
-    onThemeChange: (Boolean) -> Unit
+    onThemeChange: (Boolean) -> Unit,
+    onOpenTestUrl: (android.content.Context) -> Unit
 ) {
+    val context = LocalContext.current
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -336,6 +347,17 @@ private fun SettingsContent(
             Text(text = stringResource(R.string.settings_dark_theme))
             Switch(checked = useDarkTheme, onCheckedChange = onThemeChange)
         }
+        OutlinedButton(
+            onClick = { onOpenTestUrl(context) },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(text = stringResource(R.string.settings_link_test_button))
+        }
+        Text(
+            text = stringResource(R.string.settings_link_test_value, linkOpenTestUrl),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
         Text(
             text = stringResource(R.string.settings_note),
             style = MaterialTheme.typography.bodySmall,
@@ -478,10 +500,7 @@ private fun openLink(context: android.content.Context, payload: String) {
         addCategory(Intent.CATEGORY_BROWSABLE)
     }
 
-    if (intent.resolveActivity(context.packageManager) != null) {
-        context.startActivity(intent)
-        return
-    }
+    if (tryStartActivity(context, intent)) return
 
     if (normalizedPayload.startsWith("intent://", ignoreCase = true)) {
         val browserFallbackUrl = intent.getStringExtra("browser_fallback_url")
@@ -489,14 +508,15 @@ private fun openLink(context: android.content.Context, payload: String) {
             val browserIntent = Intent(Intent.ACTION_VIEW, browserFallbackUrl.toUri()).apply {
                 addCategory(Intent.CATEGORY_BROWSABLE)
             }
-            if (browserIntent.resolveActivity(context.packageManager) != null) {
-                context.startActivity(browserIntent)
-                return
-            }
+            if (tryStartActivity(context, browserIntent)) return
         }
     }
 
     throw ActivityNotFoundException("No handler for $normalizedPayload")
+}
+
+private fun tryStartActivity(context: android.content.Context, intent: Intent): Boolean {
+    return runCatching { context.startActivity(intent) }.isSuccess
 }
 
 private fun maskToDays(mask: Int?): Set<Int> {
