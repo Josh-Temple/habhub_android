@@ -492,17 +492,15 @@ private fun normalizeTimeInput(value: String): String {
 
 private fun openLink(context: android.content.Context, payload: String) {
     val normalizedPayload = payload.trim()
-    val intent = if (normalizedPayload.startsWith("intent://", ignoreCase = true)) {
+    val intent = if (normalizedPayload.startsWith("intent:", ignoreCase = true)) {
         Intent.parseUri(normalizedPayload, Intent.URI_INTENT_SCHEME)
     } else {
         Intent(Intent.ACTION_VIEW, normalizedPayload.toUri())
-    }.apply {
-        addCategory(Intent.CATEGORY_BROWSABLE)
     }
 
     if (tryStartActivity(context, intent)) return
 
-    if (normalizedPayload.startsWith("intent://", ignoreCase = true)) {
+    if (normalizedPayload.startsWith("intent:", ignoreCase = true)) {
         val browserFallbackUrl = intent.getStringExtra("browser_fallback_url")
         if (!browserFallbackUrl.isNullOrBlank()) {
             val browserIntent = Intent(Intent.ACTION_VIEW, browserFallbackUrl.toUri()).apply {
