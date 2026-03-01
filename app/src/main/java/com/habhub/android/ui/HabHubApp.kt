@@ -1,7 +1,7 @@
 package com.habhub.android.ui
 
+import android.content.ActivityNotFoundException
 import android.content.Intent
-import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -63,6 +63,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.core.net.toUri
 import com.habhub.android.R
 import com.habhub.android.domain.HabitEditUiModel
 import com.habhub.android.domain.HabitUiModel
@@ -80,7 +81,11 @@ private enum class AppTab { TODAY, HABITS, SETTINGS }
 private val weekDayLabels = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 
 @Composable
-fun HabHubApp(factory: HabitViewModelFactory) {
+fun HabHubApp(
+    factory: HabitViewModelFactory,
+    useDarkTheme: Boolean,
+    onThemeChange: (Boolean) -> Unit
+) {
     val vm: HabitViewModel = viewModel(factory = factory)
     val uiState by vm.uiState.collectAsStateWithLifecycle()
     val habits = uiState.items
@@ -164,7 +169,9 @@ fun HabHubApp(factory: HabitViewModelFactory) {
                 AppTab.SETTINGS -> SettingsContent(
                     modifier = Modifier.padding(padding),
                     notificationsEnabled = uiState.notificationsEnabled,
-                    onNotificationsChange = vm::setNotificationsEnabled
+                    onNotificationsChange = vm::setNotificationsEnabled,
+                    useDarkTheme = useDarkTheme,
+                    onThemeChange = onThemeChange
                 )
             }
 
@@ -302,7 +309,9 @@ private fun HabitsContent(
 private fun SettingsContent(
     modifier: Modifier = Modifier,
     notificationsEnabled: Boolean,
-    onNotificationsChange: (Boolean) -> Unit
+    onNotificationsChange: (Boolean) -> Unit,
+    useDarkTheme: Boolean,
+    onThemeChange: (Boolean) -> Unit
 ) {
     Column(
         modifier = modifier
@@ -318,6 +327,14 @@ private fun SettingsContent(
         ) {
             Text(text = stringResource(R.string.settings_notifications))
             Switch(checked = notificationsEnabled, onCheckedChange = onNotificationsChange)
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(text = stringResource(R.string.settings_dark_theme))
+            Switch(checked = useDarkTheme, onCheckedChange = onThemeChange)
         }
         Text(
             text = stringResource(R.string.settings_note),
@@ -377,7 +394,7 @@ private fun HabitFormDialog(
 
                 TextField(
                     value = reminderTime,
-                    onValueChange = { reminderTime = it },
+                    onValueChange = { reminderTime = normalizeTimeInput(it) },
                     placeholder = { Text(text = stringResource(R.string.reminder_time_hint)) }
                 )
                 TextField(
@@ -423,7 +440,7 @@ private fun HabitFormDialog(
                     NewHabitInput(
                         title = habitTitle,
                         iconName = selectedIconName,
-                        reminderTime = reminderTime,
+                        reminderTime = normalizeTimeInput(reminderTime),
                         webLink = webLink,
                         appLink = appLink,
                         repeatDaysMask = daysToMask(selectedDays),
@@ -437,6 +454,34 @@ private fun HabitFormDialog(
             TextButton(onClick = onDismiss) { Text(text = stringResource(R.string.cancel)) }
         }
     )
+}
+
+
+private fun normalizeTimeInput(value: String): String {
+    val raw = value.filter(Char::isDigit).take(4)
+    return if (raw.length == 4) {
+        val hh = raw.substring(0, 2)
+        val mm = raw.substring(2, 4)
+        "$hh:$mm"
+    } else {
+        value
+    }
+}
+
+private fun openLink(context: android.content.Context, payload: String) {
+    val intent = if (payload.startsWith("intent://", ignoreCase = true)) {
+        Intent.parseUri(payload, Intent.URI_INTENT_SCHEME)
+    } else {
+        Intent(Intent.ACTION_VIEW, payload.toUri())
+    }.apply {
+        addCategory(Intent.CATEGORY_BROWSABLE)
+    }
+
+    val resolved = intent.resolveActivity(context.packageManager)
+        ?: throw ActivityNotFoundException("No handler for $payload")
+
+    intent.setPackage(resolved.packageName)
+    context.startActivity(intent)
 }
 
 private fun maskToDays(mask: Int?): Set<Int> {
@@ -545,14 +590,8 @@ private fun HabitRow(
                     }
                     Icon(
                         modifier = Modifier.clickable {
-                            runCatching {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(link.payload))
-                                val resolved = intent.resolveActivity(context.packageManager)
-                                if (resolved == null) error("No handler")
-                                context.startActivity(intent)
-                            }.onFailure {
-                                onLinkOpenFailed(context.getString(R.string.link_open_failed))
-                            }
+                            runCatching { openLink(context = context, payload = link.payload) }
+                                .onFailure { onLinkOpenFailed(context.getString(R.string.link_open_failed)) }
                         },
                         imageVector = icon,
                         contentDescription = cdesc,
