@@ -5,7 +5,7 @@ on:
 
 jobs:
   build:
-    uses: your-org/Ingrain/.github/workflows/reusable-android-debug-apk.yml@v1
+    uses: Josh-Temple/Ingrain/.github/workflows/reusable-android-debug-apk.yml@v1
     with:
       app_module: app
       gradle_task: assembleDebug
