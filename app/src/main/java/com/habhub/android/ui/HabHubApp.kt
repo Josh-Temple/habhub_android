@@ -79,7 +79,7 @@ import java.time.LocalDate
 private enum class AppTab { TODAY, HABITS, SETTINGS }
 
 private val weekDayLabels = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
-private const val linkOpenTestUrl = "intent:#Intent;action=android.settings.SETTINGS;end"
+private const val linkOpenTestUrl = "https://developer.android.com"
 
 @Composable
 fun HabHubApp(
@@ -503,7 +503,9 @@ private fun openLink(context: android.content.Context, payload: String) {
     if (normalizedPayload.startsWith("intent:", ignoreCase = true)) {
         val browserFallbackUrl = intent.getStringExtra("browser_fallback_url")
         if (!browserFallbackUrl.isNullOrBlank()) {
-            val browserIntent = Intent(Intent.ACTION_VIEW, browserFallbackUrl.toUri())
+            val browserIntent = Intent(Intent.ACTION_VIEW, browserFallbackUrl.toUri()).apply {
+                addCategory(Intent.CATEGORY_BROWSABLE)
+            }
             if (tryStartActivity(context, browserIntent)) return
         }
     }
