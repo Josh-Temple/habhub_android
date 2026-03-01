@@ -3,7 +3,7 @@ package com.habhub.android.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.habhub.android.data.DailyCompletionRow
+import com.habhub.android.domain.HabitEditUiModel
 import com.habhub.android.domain.HabitUiModel
 import com.habhub.android.domain.NewHabitInput
 import com.habhub.android.notifications.ReminderScheduler
@@ -14,13 +14,24 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.LocalDate
+
+enum class HabitInputError {
+    TITLE,
+    TIME,
+    WEB,
+    APP,
+    START_DATE,
+    END_DATE,
+    DATE_RANGE
+}
 
 data class TodayUiState(
     val items: List<HabitUiModel> = emptyList(),
-    val history: List<DailyCompletionRow> = emptyList(),
+    val manageItems: List<HabitEditUiModel> = emptyList(),
     val notificationsEnabled: Boolean = true,
     val isLoading: Boolean = true,
-    val inputError: String? = null
+    val inputError: HabitInputError? = null
 )
 
 class HabitViewModel(
@@ -43,8 +54,8 @@ class HabitViewModel(
         }
 
         viewModelScope.launch {
-            repo.observeDailyCompletion().collect { rows ->
-                _uiState.update { it.copy(history = rows) }
+            repo.observeManageHabits().collect { list ->
+                _uiState.update { it.copy(manageItems = list) }
             }
         }
     }
@@ -64,37 +75,65 @@ class HabitViewModel(
     }
 
     fun addHabit(input: NewHabitInput) {
+        submitHabit(input) { validated -> repo.addHabit(validated) }
+    }
+
+    fun updateHabit(habitId: String, input: NewHabitInput) {
+        submitHabit(input) { validated -> repo.updateHabit(habitId, validated) }
+    }
+
+    private fun submitHabit(
+        input: NewHabitInput,
+        action: suspend (NewHabitInput) -> Unit
+    ) {
         viewModelScope.launch {
             val title = input.title.trim()
             if (title.isBlank()) {
-                _uiState.update { it.copy(inputError = "title") }
+                _uiState.update { it.copy(inputError = HabitInputError.TITLE) }
                 return@launch
             }
             if (!input.reminderTime.isNullOrBlank() && !LinkValidator.isValidTime(input.reminderTime)) {
-                _uiState.update { it.copy(inputError = "time") }
+                _uiState.update { it.copy(inputError = HabitInputError.TIME) }
                 return@launch
             }
             if (!input.webLink.isNullOrBlank() && !LinkValidator.isValidWebUrl(input.webLink)) {
-                _uiState.update { it.copy(inputError = "web") }
+                _uiState.update { it.copy(inputError = HabitInputError.WEB) }
                 return@launch
             }
             if (!input.appLink.isNullOrBlank() && !LinkValidator.isValidAppLink(input.appLink)) {
-                _uiState.update { it.copy(inputError = "app") }
+                _uiState.update { it.copy(inputError = HabitInputError.APP) }
+                return@launch
+            }
+            if (!isValidDate(input.startDate)) {
+                _uiState.update { it.copy(inputError = HabitInputError.START_DATE) }
+                return@launch
+            }
+            if (!input.endDate.isNullOrBlank() && !isValidDate(input.endDate)) {
+                _uiState.update { it.copy(inputError = HabitInputError.END_DATE) }
+                return@launch
+            }
+            if (!input.endDate.isNullOrBlank() && LocalDate.parse(input.endDate).isBefore(LocalDate.parse(input.startDate))) {
+                _uiState.update { it.copy(inputError = HabitInputError.DATE_RANGE) }
                 return@launch
             }
 
-            repo.addHabit(
+            action(
                 input.copy(
                     title = title,
                     reminderTime = input.reminderTime?.takeIf { it.isNotBlank() },
                     webLink = input.webLink?.takeIf { it.isNotBlank() },
-                    appLink = input.appLink?.takeIf { it.isNotBlank() }
+                    appLink = input.appLink?.takeIf { it.isNotBlank() },
+                    endDate = input.endDate?.takeIf { it.isNotBlank() }
                 )
             )
 
             scheduler.scheduleDailyReminders(repo.getReminderSchedules())
             _uiState.update { it.copy(inputError = null) }
         }
+    }
+
+    private fun isValidDate(value: String): Boolean {
+        return runCatching { LocalDate.parse(value) }.isSuccess
     }
 }
 

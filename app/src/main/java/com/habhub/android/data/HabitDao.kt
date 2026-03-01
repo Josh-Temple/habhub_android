@@ -16,9 +16,14 @@ data class TodayHabitRow(
     val completed_flag: Int
 )
 
-data class DailyCompletionRow(
-    val local_date: String,
-    val completed_count: Int
+data class HabitManageRow(
+    val id: String,
+    val title: String,
+    val icon_name: String,
+    val reminder_time_local: String?,
+    val repeat_days_mask: Int?,
+    val start_date: String,
+    val end_date: String?
 )
 
 @Dao
@@ -45,19 +50,26 @@ interface HabitDao {
     )
     fun observeTodayHabits(today: String): Flow<List<TodayHabitRow>>
 
-    @Query("SELECT * FROM habit_links WHERE habit_id IN (:habitIds) ORDER BY sort_order ASC")
-    suspend fun getLinksForHabits(habitIds: List<String>): List<HabitLinkEntity>
-
     @Query(
         """
-        SELECT local_date, COUNT(*) AS completed_count
-        FROM completion_logs
-        GROUP BY local_date
-        ORDER BY local_date DESC
-        LIMIT :limit
+        SELECT
+          h.id AS id,
+          h.title AS title,
+          h.icon_name AS icon_name,
+          s.reminder_time_local AS reminder_time_local,
+          s.repeat_days_mask AS repeat_days_mask,
+          s.start_date AS start_date,
+          s.end_date AS end_date
+        FROM habits h
+        INNER JOIN habit_schedules s ON s.habit_id = h.id
+        WHERE h.is_archived = 0
+        ORDER BY h.sort_order ASC
         """
     )
-    fun observeDailyCompletion(limit: Int = 14): Flow<List<DailyCompletionRow>>
+    fun observeManageHabits(): Flow<List<HabitManageRow>>
+
+    @Query("SELECT * FROM habit_links WHERE habit_id IN (:habitIds) ORDER BY sort_order ASC")
+    suspend fun getLinksForHabits(habitIds: List<String>): List<HabitLinkEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertCompletion(log: CompletionLogEntity)
@@ -86,6 +98,27 @@ interface HabitDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSchedule(item: HabitScheduleEntity)
 
+    @Query("SELECT * FROM habits WHERE id = :habitId LIMIT 1")
+    suspend fun getHabitById(habitId: String): HabitEntity?
+
+    @Query("DELETE FROM habit_links WHERE habit_id = :habitId")
+    suspend fun deleteLinksByHabitId(habitId: String)
+
+    @Query("SELECT id FROM habit_schedules WHERE habit_id = :habitId LIMIT 1")
+    suspend fun getScheduleIdForHabit(habitId: String): String?
+
+    @Transaction
+    suspend fun updateHabitWithRelations(
+        habit: HabitEntity,
+        schedule: HabitScheduleEntity,
+        links: List<HabitLinkEntity>
+    ) {
+        insertHabit(habit)
+        insertSchedule(schedule)
+        deleteLinksByHabitId(habit.id)
+        links.forEach { insertLink(it) }
+    }
+
     @Query(
         """
         SELECT s.*, h.title AS habit_title
@@ -95,6 +128,17 @@ interface HabitDao {
         """
     )
     suspend fun getReminderScheduleRows(): List<ReminderScheduleRow>
+
+    @Query(
+        """
+        SELECT s.*, h.title AS habit_title
+        FROM habit_schedules s
+        INNER JOIN habits h ON h.id = s.habit_id
+        WHERE s.habit_id = :habitId
+        LIMIT 1
+        """
+    )
+    suspend fun getReminderScheduleRowByHabitId(habitId: String): ReminderScheduleRow?
 
     @Transaction
     suspend fun seedIfEmpty(

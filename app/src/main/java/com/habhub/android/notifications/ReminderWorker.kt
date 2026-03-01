@@ -10,6 +10,7 @@ import androidx.core.content.ContextCompat
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.habhub.android.R
+import com.habhub.android.data.HabHubDatabase
 
 class ReminderWorker(
     appContext: Context,
@@ -19,7 +20,6 @@ class ReminderWorker(
     override suspend fun doWork(): Result {
         val habitId = inputData.getString(KEY_HABIT_ID) ?: return Result.success()
         val title = inputData.getString(KEY_HABIT_TITLE) ?: applicationContext.getString(R.string.app_name)
-        val time = inputData.getString(KEY_REMINDER_TIME) ?: return Result.success()
 
         if (ContextCompat.checkSelfPermission(
                 applicationContext,
@@ -41,7 +41,12 @@ class ReminderWorker(
             manager.notify((System.currentTimeMillis() % Int.MAX_VALUE).toInt(), notification)
         }
 
-        ReminderScheduler(applicationContext).scheduleNextDay(habitId = habitId, title = title, time = time)
+        val row = HabHubDatabase.getInstance(applicationContext)
+            .habitDao()
+            .getReminderScheduleRowByHabitId(habitId)
+        row?.let {
+            ReminderScheduler(applicationContext).scheduleDailyReminders(listOf(it))
+        }
         return Result.success()
     }
 

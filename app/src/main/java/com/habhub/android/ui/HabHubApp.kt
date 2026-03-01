@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -18,7 +19,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.List
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
@@ -27,12 +29,15 @@ import androidx.compose.material.icons.rounded.Today
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -58,15 +63,20 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.habhub.android.R
-import com.habhub.android.data.DailyCompletionRow
+import com.habhub.android.domain.HabitEditUiModel
 import com.habhub.android.domain.HabitUiModel
 import com.habhub.android.domain.LinkType
 import com.habhub.android.domain.NewHabitInput
 import com.habhub.android.domain.appLinkIcon
+import com.habhub.android.domain.habitIconOptions
+import com.habhub.android.domain.iconForSymbol
 import com.habhub.android.domain.webLinkIcon
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 
-private enum class AppTab { TODAY, HISTORY, SETTINGS }
+private enum class AppTab { TODAY, HABITS, SETTINGS }
+
+private val weekDayLabels = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 
 @Composable
 fun HabHubApp(factory: HabitViewModelFactory) {
@@ -79,15 +89,18 @@ fun HabHubApp(factory: HabitViewModelFactory) {
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var showAddDialog by rememberSaveable { mutableStateOf(false) }
+    var editingHabit by remember { mutableStateOf<HabitEditUiModel?>(null) }
     var currentTab by rememberSaveable { mutableStateOf(AppTab.TODAY) }
 
     val errorMessage = when (uiState.inputError) {
-        "title" -> stringResource(R.string.error_title_required)
-        "time" -> stringResource(R.string.error_time_invalid)
-        "web" -> stringResource(R.string.error_web_invalid)
-        "app" -> stringResource(R.string.error_app_invalid)
+        HabitInputError.TITLE -> stringResource(R.string.error_title_required)
+        HabitInputError.TIME -> stringResource(R.string.error_time_invalid)
+        HabitInputError.WEB -> stringResource(R.string.error_web_invalid)
+        HabitInputError.APP -> stringResource(R.string.error_app_invalid)
+        HabitInputError.START_DATE -> stringResource(R.string.error_start_date_invalid)
+        HabitInputError.END_DATE -> stringResource(R.string.error_end_date_invalid)
+        HabitInputError.DATE_RANGE -> stringResource(R.string.error_date_range_invalid)
         null -> null
-        else -> stringResource(R.string.error_unknown)
     }
 
     LaunchedEffect(errorMessage) {
@@ -107,10 +120,10 @@ fun HabHubApp(factory: HabitViewModelFactory) {
                     label = { Text(stringResource(R.string.tab_today)) }
                 )
                 NavigationBarItem(
-                    selected = currentTab == AppTab.HISTORY,
-                    onClick = { currentTab = AppTab.HISTORY },
-                    icon = { Icon(Icons.Rounded.History, contentDescription = stringResource(R.string.tab_history)) },
-                    label = { Text(stringResource(R.string.tab_history)) }
+                    selected = currentTab == AppTab.HABITS,
+                    onClick = { currentTab = AppTab.HABITS },
+                    icon = { Icon(Icons.Rounded.List, contentDescription = stringResource(R.string.tab_habits)) },
+                    label = { Text(stringResource(R.string.tab_habits)) }
                 )
                 NavigationBarItem(
                     selected = currentTab == AppTab.SETTINGS,
@@ -121,7 +134,7 @@ fun HabHubApp(factory: HabitViewModelFactory) {
             }
         },
         floatingActionButton = {
-            if (currentTab == AppTab.TODAY) {
+            if (currentTab == AppTab.HABITS) {
                 FloatingActionButton(onClick = { showAddDialog = true }) {
                     Icon(Icons.Rounded.Add, contentDescription = stringResource(R.string.add_habit))
                 }
@@ -141,9 +154,10 @@ fun HabHubApp(factory: HabitViewModelFactory) {
                     }
                 )
 
-                AppTab.HISTORY -> HistoryContent(
+                AppTab.HABITS -> HabitsContent(
                     modifier = Modifier.padding(padding),
-                    rows = uiState.history
+                    items = uiState.manageItems,
+                    onEdit = { editingHabit = it }
                 )
 
                 AppTab.SETTINGS -> SettingsContent(
@@ -154,11 +168,25 @@ fun HabHubApp(factory: HabitViewModelFactory) {
             }
 
             if (showAddDialog) {
-                AddHabitDialog(
+                HabitFormDialog(
+                    title = stringResource(R.string.add_habit),
+                    initial = null,
                     onDismiss = { showAddDialog = false },
                     onSave = {
                         vm.addHabit(it)
                         showAddDialog = false
+                    }
+                )
+            }
+
+            editingHabit?.let { editing ->
+                HabitFormDialog(
+                    title = stringResource(R.string.edit_habit),
+                    initial = editing,
+                    onDismiss = { editingHabit = null },
+                    onSave = {
+                        vm.updateHabit(editing.id, it)
+                        editingHabit = null
                     }
                 )
             }
@@ -218,7 +246,11 @@ private fun TodayContent(
 }
 
 @Composable
-private fun HistoryContent(modifier: Modifier = Modifier, rows: List<DailyCompletionRow>) {
+private fun HabitsContent(
+    modifier: Modifier = Modifier,
+    items: List<HabitEditUiModel>,
+    onEdit: (HabitEditUiModel) -> Unit
+) {
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
@@ -226,22 +258,38 @@ private fun HistoryContent(modifier: Modifier = Modifier, rows: List<DailyComple
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         item {
-            Text(text = stringResource(R.string.tab_history), style = MaterialTheme.typography.headlineMedium)
+            Text(text = stringResource(R.string.tab_habits), style = MaterialTheme.typography.headlineMedium)
             Spacer(modifier = Modifier.height(8.dp))
         }
-        if (rows.isEmpty()) {
+        if (items.isEmpty()) {
             item {
                 Text(
-                    text = stringResource(R.string.placeholder_history),
+                    text = stringResource(R.string.placeholder_habits),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         } else {
-            items(rows, key = { it.local_date }) { row ->
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(text = row.local_date)
-                    Text(text = row.completed_count.toString(), color = MaterialTheme.colorScheme.primary)
+            items(items, key = { it.id }) { row ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(imageVector = iconForSymbol(row.iconName), contentDescription = row.title)
+                        Column {
+                            Text(text = row.title)
+                            Text(
+                                text = "${row.startDate} - ${row.endDate ?: "∞"}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    IconButton(onClick = { onEdit(row) }) {
+                        Icon(Icons.Rounded.Edit, contentDescription = stringResource(R.string.edit_habit))
+                    }
                 }
                 Divider(color = Color(0xFFE6E6E6))
             }
@@ -279,22 +327,52 @@ private fun SettingsContent(
 }
 
 @Composable
-private fun AddHabitDialog(onDismiss: () -> Unit, onSave: (NewHabitInput) -> Unit) {
-    var title by remember { mutableStateOf("") }
-    var reminderTime by remember { mutableStateOf("") }
-    var webLink by remember { mutableStateOf("") }
-    var appLink by remember { mutableStateOf("") }
+private fun HabitFormDialog(
+    title: String,
+    initial: HabitEditUiModel?,
+    onDismiss: () -> Unit,
+    onSave: (NewHabitInput) -> Unit
+) {
+    var habitTitle by remember(initial) { mutableStateOf(initial?.title.orEmpty()) }
+    var selectedIconName by remember(initial) { mutableStateOf(initial?.iconName ?: habitIconOptions.first().key) }
+    var reminderTime by remember(initial) { mutableStateOf(initial?.reminderTime.orEmpty()) }
+    var webLink by remember(initial) { mutableStateOf(initial?.webLink.orEmpty()) }
+    var appLink by remember(initial) { mutableStateOf(initial?.appLink.orEmpty()) }
+    var startDate by remember(initial) { mutableStateOf(initial?.startDate ?: LocalDate.now().toString()) }
+    var endDate by remember(initial) { mutableStateOf(initial?.endDate.orEmpty()) }
+    var selectedDays by remember(initial) { mutableStateOf(maskToDays(initial?.repeatDaysMask)) }
+    var iconMenuExpanded by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(text = stringResource(R.string.add_habit)) },
+        title = { Text(text = title) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 TextField(
-                    value = title,
-                    onValueChange = { title = it },
+                    value = habitTitle,
+                    onValueChange = { habitTitle = it },
                     placeholder = { Text(text = stringResource(R.string.habit_title_hint)) }
                 )
+
+                OutlinedButton(onClick = { iconMenuExpanded = true }) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(iconForSymbol(selectedIconName), contentDescription = selectedIconName)
+                        Text(text = selectedIconName)
+                    }
+                }
+                DropdownMenu(expanded = iconMenuExpanded, onDismissRequest = { iconMenuExpanded = false }) {
+                    habitIconOptions.forEach { option ->
+                        DropdownMenuItem(
+                            text = { Text(option.key) },
+                            leadingIcon = { Icon(option.icon, contentDescription = option.key) },
+                            onClick = {
+                                selectedIconName = option.key
+                                iconMenuExpanded = false
+                            }
+                        )
+                    }
+                }
+
                 TextField(
                     value = reminderTime,
                     onValueChange = { reminderTime = it },
@@ -310,16 +388,45 @@ private fun AddHabitDialog(onDismiss: () -> Unit, onSave: (NewHabitInput) -> Uni
                     onValueChange = { appLink = it },
                     placeholder = { Text(text = stringResource(R.string.app_link_hint)) }
                 )
+                TextField(
+                    value = startDate,
+                    onValueChange = { startDate = it },
+                    placeholder = { Text(text = stringResource(R.string.start_date_hint)) }
+                )
+                TextField(
+                    value = endDate,
+                    onValueChange = { endDate = it },
+                    placeholder = { Text(text = stringResource(R.string.end_date_hint)) }
+                )
+
+                Text(text = stringResource(R.string.weekday_hint), style = MaterialTheme.typography.labelMedium)
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    weekDayLabels.forEachIndexed { index, label ->
+                        val checked = selectedDays.contains(index)
+                        OutlinedButton(onClick = {
+                            selectedDays = if (checked) selectedDays - index else selectedDays + index
+                        }) {
+                            Text(if (checked) "✓$label" else label)
+                        }
+                    }
+                }
             }
         },
         confirmButton = {
             TextButton(onClick = {
                 onSave(
                     NewHabitInput(
-                        title = title,
+                        title = habitTitle,
+                        iconName = selectedIconName,
                         reminderTime = reminderTime,
                         webLink = webLink,
-                        appLink = appLink
+                        appLink = appLink,
+                        repeatDaysMask = daysToMask(selectedDays),
+                        startDate = startDate,
+                        endDate = endDate
                     )
                 )
             }) { Text(text = stringResource(R.string.save)) }
@@ -328,6 +435,24 @@ private fun AddHabitDialog(onDismiss: () -> Unit, onSave: (NewHabitInput) -> Uni
             TextButton(onClick = onDismiss) { Text(text = stringResource(R.string.cancel)) }
         }
     )
+}
+
+private fun maskToDays(mask: Int?): Set<Int> {
+    if (mask == null) return emptySet()
+    return buildSet {
+        for (i in 0..6) {
+            if ((mask and (1 shl i)) != 0) add(i)
+        }
+    }
+}
+
+private fun daysToMask(days: Set<Int>): Int? {
+    if (days.isEmpty()) return null
+    var mask = 0
+    days.forEach { day ->
+        mask = mask or (1 shl day)
+    }
+    return mask
 }
 
 @Composable

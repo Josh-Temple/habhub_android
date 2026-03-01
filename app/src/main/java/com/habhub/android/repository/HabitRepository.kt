@@ -1,12 +1,12 @@
 package com.habhub.android.repository
 
 import com.habhub.android.data.CompletionLogEntity
-import com.habhub.android.data.DailyCompletionRow
 import com.habhub.android.data.HabitDao
 import com.habhub.android.data.HabitEntity
 import com.habhub.android.data.HabitLinkEntity
 import com.habhub.android.data.HabitScheduleEntity
 import com.habhub.android.data.ReminderScheduleRow
+import com.habhub.android.domain.HabitEditUiModel
 import com.habhub.android.domain.HabitLinkUiModel
 import com.habhub.android.domain.HabitUiModel
 import com.habhub.android.domain.LinkType
@@ -46,7 +46,27 @@ class HabitRepository(
         }
     }
 
-    fun observeDailyCompletion(limit: Int = 14): Flow<List<DailyCompletionRow>> = dao.observeDailyCompletion(limit)
+    fun observeManageHabits(): Flow<List<HabitEditUiModel>> {
+        return dao.observeManageHabits().map { rows ->
+            val ids = rows.map { it.id }
+            val linksByHabitId = if (ids.isEmpty()) emptyMap() else dao.getLinksForHabits(ids).groupBy { it.habitId }
+
+            rows.map { row ->
+                val links = linksByHabitId[row.id].orEmpty()
+                HabitEditUiModel(
+                    id = row.id,
+                    title = row.title,
+                    iconName = row.icon_name,
+                    reminderTime = row.reminder_time_local,
+                    webLink = links.firstOrNull { it.linkType == "WEB" }?.urlOrIntent,
+                    appLink = links.firstOrNull { it.linkType == "APP_INTENT" }?.urlOrIntent,
+                    repeatDaysMask = row.repeat_days_mask,
+                    startDate = row.start_date,
+                    endDate = row.end_date
+                )
+            }
+        }
+    }
 
     suspend fun toggleCompletion(habitId: String, checked: Boolean, localDate: LocalDate = LocalDate.now()) {
         if (checked) {
@@ -74,7 +94,7 @@ class HabitRepository(
             HabitEntity(
                 id = id,
                 title = input.title,
-                iconName = "self_improvement",
+                iconName = input.iconName,
                 colorToken = null,
                 sortOrder = sortOrder,
                 isArchived = false,
@@ -86,46 +106,87 @@ class HabitRepository(
             HabitScheduleEntity(
                 id = UUID.randomUUID().toString(),
                 habitId = id,
-                repeatType = "DAILY",
-                repeatDaysMask = null,
+                repeatType = if (input.repeatDaysMask != null) "WEEKLY" else "DAILY",
+                repeatDaysMask = input.repeatDaysMask,
                 reminderEnabled = !input.reminderTime.isNullOrBlank(),
                 reminderTimeLocal = input.reminderTime,
                 timezoneId = zone,
-                startDate = LocalDate.now().toString(),
-                endDate = null
+                startDate = input.startDate,
+                endDate = input.endDate,
             )
         )
 
-        input.webLink?.takeIf { it.isNotBlank() }?.let {
-            dao.insertLink(
-                HabitLinkEntity(
-                    id = UUID.randomUUID().toString(),
-                    habitId = id,
-                    linkType = "WEB",
-                    title = null,
-                    urlOrIntent = it,
-                    packageName = null,
-                    openMode = "EXTERNAL_BROWSER",
-                    sortOrder = 1,
-                    createdAtEpochMs = now
-                )
+        upsertLinks(habitId = id, now = now, webLink = input.webLink, appLink = input.appLink)
+    }
+
+    suspend fun updateHabit(habitId: String, input: NewHabitInput) {
+        val now = System.currentTimeMillis()
+        val zone = ZoneId.systemDefault().id
+        val existingHabit = dao.getHabitById(habitId)
+
+        val updatedHabit = HabitEntity(
+            id = habitId,
+            title = input.title,
+            iconName = input.iconName,
+            colorToken = existingHabit?.colorToken,
+            sortOrder = existingHabit?.sortOrder ?: now.toInt(),
+            isArchived = existingHabit?.isArchived ?: false,
+            createdAtEpochMs = existingHabit?.createdAtEpochMs ?: now,
+            updatedAtEpochMs = now
+        )
+        val updatedSchedule = HabitScheduleEntity(
+            id = dao.getScheduleIdForHabit(habitId) ?: UUID.randomUUID().toString(),
+            habitId = habitId,
+            repeatType = if (input.repeatDaysMask != null) "WEEKLY" else "DAILY",
+            repeatDaysMask = input.repeatDaysMask,
+            reminderEnabled = !input.reminderTime.isNullOrBlank(),
+            reminderTimeLocal = input.reminderTime,
+            timezoneId = zone,
+            startDate = input.startDate,
+            endDate = input.endDate,
+        )
+
+        dao.updateHabitWithRelations(
+            habit = updatedHabit,
+            schedule = updatedSchedule,
+            links = buildLinks(habitId = habitId, now = now, webLink = input.webLink, appLink = input.appLink)
+        )
+    }
+
+    private suspend fun upsertLinks(habitId: String, now: Long, webLink: String?, appLink: String?) {
+        buildLinks(habitId = habitId, now = now, webLink = webLink, appLink = appLink)
+            .forEach { dao.insertLink(it) }
+    }
+
+    private fun buildLinks(habitId: String, now: Long, webLink: String?, appLink: String?): List<HabitLinkEntity> {
+        val items = mutableListOf<HabitLinkEntity>()
+        webLink?.takeIf { it.isNotBlank() }?.let {
+            items += HabitLinkEntity(
+                id = UUID.randomUUID().toString(),
+                habitId = habitId,
+                linkType = "WEB",
+                title = null,
+                urlOrIntent = it,
+                packageName = null,
+                openMode = "EXTERNAL_BROWSER",
+                sortOrder = 1,
+                createdAtEpochMs = now
             )
         }
-        input.appLink?.takeIf { it.isNotBlank() }?.let {
-            dao.insertLink(
-                HabitLinkEntity(
-                    id = UUID.randomUUID().toString(),
-                    habitId = id,
-                    linkType = "APP_INTENT",
-                    title = null,
-                    urlOrIntent = it,
-                    packageName = null,
-                    openMode = "INTENT",
-                    sortOrder = 2,
-                    createdAtEpochMs = now
-                )
+        appLink?.takeIf { it.isNotBlank() }?.let {
+            items += HabitLinkEntity(
+                id = UUID.randomUUID().toString(),
+                habitId = habitId,
+                linkType = "APP_INTENT",
+                title = null,
+                urlOrIntent = it,
+                packageName = null,
+                openMode = "INTENT",
+                sortOrder = 2,
+                createdAtEpochMs = now
             )
         }
+        return items
     }
 
     suspend fun seedInitialDataIfNeeded() {
