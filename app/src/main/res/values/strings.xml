@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">HabHub</string>
+    <string name="add_habit">Add habit</string>
+    <string name="habit_title_hint">Habit title</string>
+    <string name="reminder_time_hint">Reminder time (HH:mm)</string>
+    <string name="web_link_hint">Web link (https://...)</string>
+    <string name="app_link_hint">App link (intent:// or custom scheme)</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+    <string name="menu">Menu</string>
+    <string name="tab_today">Today</string>
+    <string name="tab_history">History</string>
+    <string name="tab_settings">Settings</string>
+    <string name="section_uncompleted">Uncompleted</string>
+    <string name="section_completed">Completed</string>
+    <string name="placeholder_history">No completion records yet.</string>
+    <string name="link_open_failed">Unable to open the selected link.</string>
+    <string name="reminder_message">Time to complete your habit.</string>
+    <string name="error_title_required">Title is required.</string>
+    <string name="error_time_invalid">Reminder time must be HH:mm format.</string>
+    <string name="error_web_invalid">Web link must start with http or https.</string>
+    <string name="error_app_invalid">App link must use a non-web scheme.</string>
+    <string name="error_unknown">Input error.</string>
+    <string name="cd_completion_toggle">Toggle completion</string>
+    <string name="cd_habit_icon">Habit icon</string>
+    <string name="cd_reminder_enabled">Reminder enabled</string>
+    <string name="cd_web_link">Open web link</string>
+    <string name="cd_app_link">Open app link</string>
+    <string name="settings_notifications">Enable notifications</string>
+    <string name="settings_note">Additional settings will be expanded in next iterations.</string>
+</resources>
