@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -327,6 +328,7 @@ private fun SettingsContent(
 }
 
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
 private fun HabitFormDialog(
     title: String,
     initial: HabitEditUiModel?,
