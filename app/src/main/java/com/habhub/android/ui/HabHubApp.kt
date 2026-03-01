@@ -469,19 +469,34 @@ private fun normalizeTimeInput(value: String): String {
 }
 
 private fun openLink(context: android.content.Context, payload: String) {
-    val intent = if (payload.startsWith("intent://", ignoreCase = true)) {
-        Intent.parseUri(payload, Intent.URI_INTENT_SCHEME)
+    val normalizedPayload = payload.trim()
+    val intent = if (normalizedPayload.startsWith("intent://", ignoreCase = true)) {
+        Intent.parseUri(normalizedPayload, Intent.URI_INTENT_SCHEME)
     } else {
-        Intent(Intent.ACTION_VIEW, payload.toUri())
+        Intent(Intent.ACTION_VIEW, normalizedPayload.toUri())
     }.apply {
         addCategory(Intent.CATEGORY_BROWSABLE)
     }
 
-    val resolved = intent.resolveActivity(context.packageManager)
-        ?: throw ActivityNotFoundException("No handler for $payload")
+    if (intent.resolveActivity(context.packageManager) != null) {
+        context.startActivity(intent)
+        return
+    }
 
-    intent.setPackage(resolved.packageName)
-    context.startActivity(intent)
+    if (normalizedPayload.startsWith("intent://", ignoreCase = true)) {
+        val browserFallbackUrl = intent.getStringExtra("browser_fallback_url")
+        if (!browserFallbackUrl.isNullOrBlank()) {
+            val browserIntent = Intent(Intent.ACTION_VIEW, browserFallbackUrl.toUri()).apply {
+                addCategory(Intent.CATEGORY_BROWSABLE)
+            }
+            if (browserIntent.resolveActivity(context.packageManager) != null) {
+                context.startActivity(browserIntent)
+                return
+            }
+        }
+    }
+
+    throw ActivityNotFoundException("No handler for $normalizedPayload")
 }
 
 private fun maskToDays(mask: Int?): Set<Int> {
