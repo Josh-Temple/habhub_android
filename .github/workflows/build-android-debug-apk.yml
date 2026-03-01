@@ -13,7 +13,7 @@ on:
 
 jobs:
   build:
-    uses: Josh-Temple/Ingrain/.github/workflows/reusable-android-debug-apk.yml@v1
+    uses: Josh-Temple/Ingrain/.github/workflows/reusable-android-debug-apk.yml@main
     with:
       app_module: app
       gradle_task: assembleDebug
