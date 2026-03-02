@@ -53,9 +53,11 @@ data class HabitEditUiModel(
     val id: String,
     val title: String,
     val iconName: String,
+    val sortOrder: Int,
     val reminderTime: String?,
     val webLink: String?,
     val appLink: String?,
+    val isOneTime: Boolean,
     val repeatDaysMask: Int?,
     val startDate: String,
     val endDate: String?
@@ -72,6 +74,7 @@ data class NewHabitInput(
     val reminderTime: String?,
     val webLink: String?,
     val appLink: String?,
+    val isOneTime: Boolean,
     val repeatDaysMask: Int?,
     val startDate: String,
     val endDate: String?

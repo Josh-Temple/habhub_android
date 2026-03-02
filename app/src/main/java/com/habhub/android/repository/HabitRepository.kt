@@ -57,9 +57,11 @@ class HabitRepository(
                     id = row.id,
                     title = row.title,
                     iconName = row.icon_name,
+                    sortOrder = row.sort_order,
                     reminderTime = row.reminder_time_local,
                     webLink = links.firstOrNull { it.linkType == "WEB" }?.urlOrIntent,
                     appLink = links.firstOrNull { it.linkType == "APP_INTENT" }?.urlOrIntent,
+                    isOneTime = row.is_one_time,
                     repeatDaysMask = row.repeat_days_mask,
                     startDate = row.start_date,
                     endDate = row.end_date
@@ -99,14 +101,15 @@ class HabitRepository(
                 sortOrder = sortOrder,
                 isArchived = false,
                 createdAtEpochMs = now,
-                updatedAtEpochMs = now
+                updatedAtEpochMs = now,
+                isOneTime = input.isOneTime
             )
         )
         dao.insertSchedule(
             HabitScheduleEntity(
                 id = UUID.randomUUID().toString(),
                 habitId = id,
-                repeatType = if (input.repeatDaysMask != null) "WEEKLY" else "DAILY",
+                repeatType = if (input.isOneTime) "ONE_TIME" else if (input.repeatDaysMask != null) "WEEKLY" else "DAILY",
                 repeatDaysMask = input.repeatDaysMask,
                 reminderEnabled = !input.reminderTime.isNullOrBlank(),
                 reminderTimeLocal = input.reminderTime,
@@ -132,12 +135,13 @@ class HabitRepository(
             sortOrder = existingHabit?.sortOrder ?: now.toInt(),
             isArchived = existingHabit?.isArchived ?: false,
             createdAtEpochMs = existingHabit?.createdAtEpochMs ?: now,
-            updatedAtEpochMs = now
+            updatedAtEpochMs = now,
+            isOneTime = input.isOneTime
         )
         val updatedSchedule = HabitScheduleEntity(
             id = dao.getScheduleIdForHabit(habitId) ?: UUID.randomUUID().toString(),
             habitId = habitId,
-            repeatType = if (input.repeatDaysMask != null) "WEEKLY" else "DAILY",
+            repeatType = if (input.isOneTime) "ONE_TIME" else if (input.repeatDaysMask != null) "WEEKLY" else "DAILY",
             repeatDaysMask = input.repeatDaysMask,
             reminderEnabled = !input.reminderTime.isNullOrBlank(),
             reminderTimeLocal = input.reminderTime,
@@ -193,9 +197,9 @@ class HabitRepository(
         val now = System.currentTimeMillis()
         val zone = ZoneId.systemDefault().id
         val habits = listOf(
-            HabitEntity("1", "Deep breathing", "self_improvement", null, 1, false, now, now),
-            HabitEntity("2", "Read 20 min", "menu_book", null, 2, false, now, now),
-            HabitEntity("3", "Journal", "notifications", null, 3, false, now, now)
+            HabitEntity("1", "Deep breathing", "self_improvement", null, 1, false, now, now, false),
+            HabitEntity("2", "Read 20 min", "menu_book", null, 2, false, now, now, false),
+            HabitEntity("3", "Journal", "notifications", null, 3, false, now, now, false)
         )
         val schedules = listOf(
             HabitScheduleEntity("s1", "1", "DAILY", null, true, "20:00", zone, LocalDate.now().toString(), null),
@@ -209,5 +213,16 @@ class HabitRepository(
         dao.seedIfEmpty(habits, schedules, links)
     }
 
+
+    suspend fun updateManageOrder(orderedHabitIds: List<String>) {
+        val now = System.currentTimeMillis()
+        orderedHabitIds.forEachIndexed { index, id ->
+            dao.updateHabitSortOrder(id, index + 1, now)
+        }
+    }
+
     suspend fun getReminderSchedules(): List<ReminderScheduleRow> = dao.getReminderScheduleRows()
+
+    suspend fun isHabitCompletedToday(habitId: String, date: LocalDate = LocalDate.now()): Boolean =
+        dao.isHabitCompletedOnDate(habitId, date.toString())
 }

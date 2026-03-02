@@ -1,37 +1,38 @@
 # HANDOFF
 
-## 今回の変更概要
-- Habit行のリンク起動処理を改善し、`intent://` 形式のアプリリンクと通常のWeb/Appリンクの両方を開けるようにした。
-- Settings にライト/ダークテーマ切替トグルを追加し、即時にUIテーマへ反映するようにした。
-- ハビット追加/編集フォームの時刻入力を改善し、`0630` のような4桁数字入力を `06:30` 形式へ自動整形するようにした。
-- ViewModel 側でも保存前に時刻・Web URL の正規化を追加し、入力揺れに強くした。
+## 今回の対応内容（要望反映）
+- **Habits一覧で並び替え**（↑/↓ボタン）を追加し、`sort_order` を永続化。
+- Today 画面の並びは既存の **未完了→完了** を維持しつつ、各グループ内で `sort_order` が効く構成を維持。
+- **単発タスク（One-time task）** を追加。
+  - フォームに One-time トグルを追加。
+  - One-time 選択時は曜日選択を無効化し、保存時に `repeatType=ONE_TIME` で扱う。
+- **完了済み時は通知を抑止**するガードを `ReminderWorker` に追加。
+- ベルアイコンは **Today では非表示**、**Habits一覧に表示**へ移動。
+- Today の完了トグルに **控えめなスケールアニメーション**を追加。
 
-## 実装上のポイント
-- `openLink` で `intent://` の場合は `Intent.parseUri(..., Intent.URI_INTENT_SCHEME)` を利用。
-- それ以外のリンクは `ACTION_VIEW` + `CATEGORY_BROWSABLE` で起動。
-- 追加対応として、`openLink` で payload を `trim()` し、`intent://` でハンドラが無い場合は `browser_fallback_url` を使うフォールバックを実装済み。
-- ただしユーザー報告として「まだ https URL が開けない端末がある」ため、現行実装で問題が残っている可能性あり。
-- テーマ切替状態は `MainActivity` の `rememberSaveable` で保持し、`HabHubTheme(useDarkTheme=...)` に渡す。
-- 時刻の4桁数字入力は UI (`normalizeTimeInput`) と ViewModel (`normalizeReminderTime`) の両方でフォーマットする二重防御。
-- Web URL はスキーム未指定時に `https://` を補完する (`normalizeWebLink`)。
+## 追加リファクタリング
+- `HabitManageRow` から未使用の `reminder_enabled` を削除し、DAO投影を簡素化。
+- Habits一覧の並び替えボタンは、先頭/末尾で無効化（no-op をUIで抑制）。
+- 並び替えボタンのcontentDescriptionを文字列リソース化（`move_up`, `move_down`）。
 
-## 主な影響ファイル
-- `app/src/main/java/com/habhub/android/MainActivity.kt`
-- `app/src/main/java/com/habhub/android/ui/HabHubApp.kt`
+## 主要変更ファイル
+- `app/src/main/java/com/habhub/android/data/HabitEntities.kt`
+- `app/src/main/java/com/habhub/android/data/HabitDao.kt`
+- `app/src/main/java/com/habhub/android/data/HabHubDatabase.kt`
+- `app/src/main/java/com/habhub/android/domain/Model.kt`
+- `app/src/main/java/com/habhub/android/repository/HabitRepository.kt`
 - `app/src/main/java/com/habhub/android/ui/HabitViewModel.kt`
-- `app/src/main/java/com/habhub/android/ui/theme/Theme.kt`
+- `app/src/main/java/com/habhub/android/ui/HabHubApp.kt`
+- `app/src/main/java/com/habhub/android/notifications/ReminderWorker.kt`
 - `app/src/main/res/values/strings.xml`
 
-## 未対応/今後の改善案
-- テーマ設定の永続化（現状はプロセス中のみ保持、DataStore等への保存は未対応）。
-- `intent://` 以外の高度な deep link 形式（fallback URL付き等）のUIガイダンス。
-- 時刻入力を `TextField` ではなく TimePicker ベースにして入力ミスをさらに低減。
-- リンク起動の再検証: `resolveActivity` 事前判定を使わず、受け取った文字列をなるべくそのまま `ACTION_VIEW` で投げるシンプル経路のA/B検証を実施する。
-- 失敗時メッセージの詳細化: `ActivityNotFoundException` / `SecurityException` / URI不正などをログで識別可能にして、端末依存問題を切り分ける。
+## 積み残し確認
+- 今回要望として受けた項目（並び順反映、単発タスク、完了済み通知抑止、ベル表示位置変更、Today完了アニメーション）は実装済み。
+- ただし**実機E2E確認**（通知タイミング、日付境界、One-time運用）まではこの環境で未完了。
 
-## 確認観点（次セッション）
-1. 既存ハビットのWebリンク（http/https）をタップしてブラウザ起動できること。
-2. `intent://` 形式のアプリリンクを登録したハビットで該当アプリへ遷移できること。
-3. Settings のテーマ切替スイッチでライト/ダークが即時反映されること。
-4. 追加/編集フォームで `0630` 入力時に `06:30` として保存・表示されること。
-5. ユーザー報告の3URL（GitHub Actions/Vercel/Cloud Run）がToday一覧から開けるかを実機で再確認すること。
+## 次セッションでの確認観点
+1. Habits一覧で並び替え → Today画面の未完了/完了各グループ内順序に反映されること。
+2. One-timeタスク作成後、完了済み時に同日通知が表示されないこと。
+3. ベルアイコンがTodayには出ず、Habits一覧にのみ表示されること。
+4. Today完了トグル時のアニメーションが過度でなく、操作感を阻害しないこと。
+5. DB v2 への移行端末で既存データが想定どおり扱えること（destructive migration許容方針の確認）。

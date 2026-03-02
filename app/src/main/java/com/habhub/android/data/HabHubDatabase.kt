@@ -12,7 +12,7 @@ import androidx.room.RoomDatabase
         HabitLinkEntity::class,
         CompletionLogEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class HabHubDatabase : RoomDatabase() {
@@ -28,7 +28,7 @@ abstract class HabHubDatabase : RoomDatabase() {
                     context.applicationContext,
                     HabHubDatabase::class.java,
                     "habhub.db"
-                ).build().also { instance = it }
+                ).fallbackToDestructiveMigration().build().also { instance = it }
             }
         }
     }

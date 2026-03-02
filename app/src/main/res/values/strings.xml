@@ -10,6 +10,7 @@
     <string name="start_date_hint">Start date (yyyy-MM-dd)</string>
     <string name="end_date_hint">End date (yyyy-MM-dd, optional)</string>
     <string name="weekday_hint">Repeat weekdays (optional)</string>
+    <string name="one_time_task_label">One-time task</string>
     <string name="save">Save</string>
     <string name="cancel">Cancel</string>
     <string name="menu">Menu</string>
@@ -31,6 +32,8 @@
     <string name="cd_completion_toggle">Toggle completion</string>
     <string name="cd_habit_icon">Habit icon</string>
     <string name="cd_reminder_enabled">Reminder enabled</string>
+    <string name="move_up">Move up</string>
+    <string name="move_down">Move down</string>
     <string name="cd_web_link">Open web link</string>
     <string name="cd_app_link">Open app link</string>
     <string name="settings_notifications">Enable notifications</string>

@@ -21,6 +21,14 @@ class ReminderWorker(
         val habitId = inputData.getString(KEY_HABIT_ID) ?: return Result.success()
         val title = inputData.getString(KEY_HABIT_TITLE) ?: applicationContext.getString(R.string.app_name)
 
+        val today = java.time.LocalDate.now().toString()
+        val dao = HabHubDatabase.getInstance(applicationContext).habitDao()
+        if (dao.isHabitCompletedOnDate(habitId, today)) {
+            val row = dao.getReminderScheduleRowByHabitId(habitId)
+            row?.let { ReminderScheduler(applicationContext).scheduleDailyReminders(listOf(it)) }
+            return Result.success()
+        }
+
         if (ContextCompat.checkSelfPermission(
                 applicationContext,
                 Manifest.permission.POST_NOTIFICATIONS
@@ -41,9 +49,7 @@ class ReminderWorker(
             manager.notify((System.currentTimeMillis() % Int.MAX_VALUE).toInt(), notification)
         }
 
-        val row = HabHubDatabase.getInstance(applicationContext)
-            .habitDao()
-            .getReminderScheduleRowByHabitId(habitId)
+        val row = dao.getReminderScheduleRowByHabitId(habitId)
         row?.let {
             ReminderScheduler(applicationContext).scheduleDailyReminders(listOf(it))
         }

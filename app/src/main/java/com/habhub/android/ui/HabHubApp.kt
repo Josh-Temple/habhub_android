@@ -19,6 +19,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.List
@@ -49,6 +51,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -57,6 +61,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -164,7 +169,9 @@ fun HabHubApp(
                 AppTab.HABITS -> HabitsContent(
                     modifier = Modifier.padding(padding),
                     items = uiState.manageItems,
-                    onEdit = { editingHabit = it }
+                    onEdit = { editingHabit = it },
+                    onMoveUp = { vm.moveHabit(it, -1) },
+                    onMoveDown = { vm.moveHabit(it, 1) }
                 )
 
                 AppTab.SETTINGS -> SettingsContent(
@@ -265,7 +272,9 @@ private fun TodayContent(
 private fun HabitsContent(
     modifier: Modifier = Modifier,
     items: List<HabitEditUiModel>,
-    onEdit: (HabitEditUiModel) -> Unit
+    onEdit: (HabitEditUiModel) -> Unit,
+    onMoveUp: (String) -> Unit,
+    onMoveDown: (String) -> Unit
 ) {
     LazyColumn(
         modifier = modifier
@@ -286,7 +295,10 @@ private fun HabitsContent(
                 )
             }
         } else {
-            items(items, key = { it.id }) { row ->
+            items(items.size, key = { items[it].id }) { index ->
+                val row = items[index]
+                val canMoveUp = index > 0
+                val canMoveDown = index < items.lastIndex
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -295,7 +307,16 @@ private fun HabitsContent(
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Icon(imageVector = iconForSymbol(row.iconName), contentDescription = row.title)
                         Column {
-                            Text(text = row.title)
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text(text = row.title)
+                                if (row.reminderTime != null) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Notifications,
+                                        contentDescription = stringResource(R.string.cd_reminder_enabled),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
                             Text(
                                 text = "${row.startDate} - ${row.endDate ?: "∞"}",
                                 style = MaterialTheme.typography.bodySmall,
@@ -303,8 +324,16 @@ private fun HabitsContent(
                             )
                         }
                     }
-                    IconButton(onClick = { onEdit(row) }) {
-                        Icon(Icons.Rounded.Edit, contentDescription = stringResource(R.string.edit_habit))
+                    Row {
+                        IconButton(enabled = canMoveUp, onClick = { onMoveUp(row.id) }) {
+                            Icon(Icons.Rounded.KeyboardArrowUp, contentDescription = stringResource(R.string.move_up))
+                        }
+                        IconButton(enabled = canMoveDown, onClick = { onMoveDown(row.id) }) {
+                            Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = stringResource(R.string.move_down))
+                        }
+                        IconButton(onClick = { onEdit(row) }) {
+                            Icon(Icons.Rounded.Edit, contentDescription = stringResource(R.string.edit_habit))
+                        }
                     }
                 }
                 Divider(color = Color(0xFFE6E6E6))
@@ -382,6 +411,7 @@ private fun HabitFormDialog(
     var startDate by remember(initial) { mutableStateOf(initial?.startDate ?: LocalDate.now().toString()) }
     var endDate by remember(initial) { mutableStateOf(initial?.endDate.orEmpty()) }
     var selectedDays by remember(initial) { mutableStateOf(maskToDays(initial?.repeatDaysMask)) }
+    var isOneTime by remember(initial) { mutableStateOf(initial?.isOneTime ?: false) }
     var iconMenuExpanded by remember { mutableStateOf(false) }
 
     AlertDialog(
@@ -440,17 +470,31 @@ private fun HabitFormDialog(
                     placeholder = { Text(text = stringResource(R.string.end_date_hint)) }
                 )
 
-                Text(text = stringResource(R.string.weekday_hint), style = MaterialTheme.typography.labelMedium)
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    weekDayLabels.forEachIndexed { index, label ->
-                        val checked = selectedDays.contains(index)
-                        OutlinedButton(onClick = {
-                            selectedDays = if (checked) selectedDays - index else selectedDays + index
-                        }) {
-                            Text(if (checked) "✓$label" else label)
+                    Text(text = stringResource(R.string.one_time_task_label))
+                    Switch(checked = isOneTime, onCheckedChange = { checked ->
+                        isOneTime = checked
+                        if (checked) selectedDays = emptySet()
+                    })
+                }
+
+                Text(text = stringResource(R.string.weekday_hint), style = MaterialTheme.typography.labelMedium)
+                if (!isOneTime) {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        weekDayLabels.forEachIndexed { index, label ->
+                            val checked = selectedDays.contains(index)
+                            OutlinedButton(onClick = {
+                                selectedDays = if (checked) selectedDays - index else selectedDays + index
+                            }) {
+                                Text(if (checked) "✓$label" else label)
+                            }
                         }
                     }
                 }
@@ -465,7 +509,8 @@ private fun HabitFormDialog(
                         reminderTime = normalizeTimeInput(reminderTime),
                         webLink = webLink,
                         appLink = appLink,
-                        repeatDaysMask = daysToMask(selectedDays),
+                        isOneTime = isOneTime,
+                        repeatDaysMask = if (isOneTime) null else daysToMask(selectedDays),
                         startDate = startDate,
                         endDate = endDate
                     )
@@ -578,6 +623,11 @@ private fun HabitRow(
     onLinkOpenFailed: (String) -> Unit
 ) {
     val context = LocalContext.current
+    val scale by animateFloatAsState(
+        targetValue = if (habit.completedToday) 1.06f else 1f,
+        animationSpec = spring(stiffness = 500f, dampingRatio = 0.8f),
+        label = "completionScale"
+    )
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
@@ -588,7 +638,9 @@ private fun HabitRow(
         ) {
             val completionIcon = if (habit.completedToday) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked
             Icon(
-                modifier = Modifier.clickable { onToggle() },
+                modifier = Modifier
+                    .scale(scale)
+                    .clickable { onToggle() },
                 imageVector = completionIcon,
                 contentDescription = stringResource(R.string.cd_completion_toggle),
                 tint = if (habit.completedToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
@@ -608,13 +660,6 @@ private fun HabitRow(
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                if (habit.reminderTime != null) {
-                    Icon(
-                        imageVector = Icons.Rounded.Notifications,
-                        contentDescription = stringResource(R.string.cd_reminder_enabled),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
                 habit.links.forEach { link ->
                     val (icon, cdesc) = if (link.type == LinkType.WEB) {
                         webLinkIcon to stringResource(R.string.cd_web_link)

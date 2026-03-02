@@ -67,6 +67,22 @@ class HabitViewModel(
         }
     }
 
+
+    fun moveHabit(habitId: String, direction: Int) {
+        viewModelScope.launch {
+            val current = uiState.value.manageItems
+            val index = current.indexOfFirst { it.id == habitId }
+            if (index == -1) return@launch
+            val target = index + direction
+            if (target !in current.indices) return@launch
+            val reordered = current.toMutableList().also { list ->
+                val item = list.removeAt(index)
+                list.add(target, item)
+            }
+            repo.updateManageOrder(reordered.map { it.id })
+        }
+    }
+
     fun setNotificationsEnabled(enabled: Boolean) {
         _uiState.update { it.copy(notificationsEnabled = enabled) }
     }
@@ -120,13 +136,15 @@ class HabitViewModel(
                 return@launch
             }
 
+            val normalizedEndDate = if (input.isOneTime) input.startDate else input.endDate?.takeIf { it.isNotBlank() }
             action(
                 input.copy(
                     title = title,
                     reminderTime = normalizedReminderTime?.takeIf { it.isNotBlank() },
                     webLink = normalizedWebLink?.takeIf { it.isNotBlank() },
                     appLink = input.appLink?.takeIf { it.isNotBlank() },
-                    endDate = input.endDate?.takeIf { it.isNotBlank() }
+                    repeatDaysMask = if (input.isOneTime) null else input.repeatDaysMask,
+                    endDate = normalizedEndDate
                 )
             )
 
