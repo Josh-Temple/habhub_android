@@ -20,7 +20,9 @@ data class HabitManageRow(
     val id: String,
     val title: String,
     val icon_name: String,
+    val sort_order: Int,
     val reminder_time_local: String?,
+    val is_one_time: Boolean,
     val repeat_days_mask: Int?,
     val start_date: String,
     val end_date: String?
@@ -56,7 +58,9 @@ interface HabitDao {
           h.id AS id,
           h.title AS title,
           h.icon_name AS icon_name,
+          h.sort_order AS sort_order,
           s.reminder_time_local AS reminder_time_local,
+          h.is_one_time AS is_one_time,
           s.repeat_days_mask AS repeat_days_mask,
           s.start_date AS start_date,
           s.end_date AS end_date
@@ -80,6 +84,9 @@ interface HabitDao {
     @Query("SELECT COUNT(*) FROM habits")
     suspend fun countHabits(): Int
 
+    @Query("SELECT EXISTS(SELECT 1 FROM completion_logs WHERE habit_id = :habitId AND local_date = :date)")
+    suspend fun isHabitCompletedOnDate(habitId: String, date: String): Boolean
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertHabits(items: List<HabitEntity>)
 
@@ -94,6 +101,9 @@ interface HabitDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertHabit(item: HabitEntity)
+
+    @Query("UPDATE habits SET sort_order = :sortOrder, updated_at_epoch_ms = :updatedAtEpochMs WHERE id = :habitId")
+    suspend fun updateHabitSortOrder(habitId: String, sortOrder: Int, updatedAtEpochMs: Long)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSchedule(item: HabitScheduleEntity)

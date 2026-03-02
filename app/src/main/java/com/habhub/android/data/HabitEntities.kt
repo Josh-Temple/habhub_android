@@ -18,7 +18,8 @@ data class HabitEntity(
     @ColumnInfo(name = "sort_order") val sortOrder: Int,
     @ColumnInfo(name = "is_archived") val isArchived: Boolean,
     @ColumnInfo(name = "created_at_epoch_ms") val createdAtEpochMs: Long,
-    @ColumnInfo(name = "updated_at_epoch_ms") val updatedAtEpochMs: Long
+    @ColumnInfo(name = "updated_at_epoch_ms") val updatedAtEpochMs: Long,
+    @ColumnInfo(name = "is_one_time") val isOneTime: Boolean
 )
 
 @Entity(
