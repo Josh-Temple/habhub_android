@@ -157,6 +157,10 @@ class HabitRepository(
         )
     }
 
+    suspend fun deleteHabit(habitId: String) {
+        dao.deleteHabitWithRelations(habitId)
+    }
+
     private suspend fun upsertLinks(habitId: String, now: Long, webLink: String?, appLink: String?) {
         buildLinks(habitId = habitId, now = now, webLink = webLink, appLink = appLink)
             .forEach { dao.insertLink(it) }

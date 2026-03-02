@@ -117,6 +117,24 @@ interface HabitDao {
     @Query("SELECT id FROM habit_schedules WHERE habit_id = :habitId LIMIT 1")
     suspend fun getScheduleIdForHabit(habitId: String): String?
 
+
+    @Query("DELETE FROM completion_logs WHERE habit_id = :habitId")
+    suspend fun deleteCompletionsByHabitId(habitId: String)
+
+    @Query("DELETE FROM habit_schedules WHERE habit_id = :habitId")
+    suspend fun deleteScheduleByHabitId(habitId: String)
+
+    @Query("DELETE FROM habits WHERE id = :habitId")
+    suspend fun deleteHabitById(habitId: String)
+
+    @Transaction
+    suspend fun deleteHabitWithRelations(habitId: String) {
+        deleteCompletionsByHabitId(habitId)
+        deleteLinksByHabitId(habitId)
+        deleteScheduleByHabitId(habitId)
+        deleteHabitById(habitId)
+    }
+
     @Transaction
     suspend fun updateHabitWithRelations(
         habit: HabitEntity,
