@@ -43,6 +43,18 @@ HabHub の Android 版（Jetpack Compose + Room）です。
 3. Gradle Sync
 4. `app` を実機またはエミュレータで実行
 
+
+## Intentリンクの検証メモ（AnkiDroid）
+
+Settings の「Test Android Settings intent」で intent 起動経路が動作することを確認後、AnkiDroid は以下の書式を推奨します。
+
+- ✅ 起動確認できたシンプル形式
+  - `intent:#Intent;package=com.ichi2.anki;end`
+- ⚠️ 端末差で失敗する可能性がある形式（必要時のみ試す）
+  - `intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package=com.ichi2.anki;end`
+
+まずはシンプル形式を Habit の App link に登録して検証してください。
+
 ## 現時点の既知課題
 
 - この実行環境では Android Gradle Plugin の解決に失敗し、`assembleDebug` が完走しないことがあります。
