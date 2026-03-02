@@ -35,7 +35,7 @@
     <string name="cd_app_link">Open app link</string>
     <string name="settings_notifications">Enable notifications</string>
     <string name="settings_dark_theme">Use dark theme</string>
-    <string name="settings_link_test_button">Test Android Settings intent</string>
-    <string name="settings_link_test_value">Test intent: %1$s</string>
+    <string name="settings_link_test_button">Test opening URL in app</string>
+    <string name="settings_link_test_value">Test URL: %1$s</string>
     <string name="settings_note">Additional settings will be expanded in next iterations.</string>
 </resources>
