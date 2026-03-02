@@ -99,6 +99,13 @@ class HabitViewModel(
         submitHabit(input) { validated -> repo.updateHabit(habitId, validated) }
     }
 
+    fun deleteHabit(habitId: String) {
+        viewModelScope.launch {
+            repo.deleteHabit(habitId)
+            scheduler.scheduleDailyReminders(repo.getReminderSchedules())
+        }
+    }
+
     private fun submitHabit(
         input: NewHabitInput,
         action: suspend (NewHabitInput) -> Unit

@@ -13,6 +13,10 @@
     <string name="one_time_task_label">One-time task</string>
     <string name="save">Save</string>
     <string name="cancel">Cancel</string>
+    <string name="delete_habit">Delete</string>
+    <string name="delete_habit_title">Delete habit?</string>
+    <string name="delete_habit_message">Are you sure you want to delete "%1$s"? This action cannot be undone.</string>
+    <string name="delete_habit_confirm">Delete</string>
     <string name="menu">Menu</string>
     <string name="tab_today">Today</string>
     <string name="tab_habits">Habits</string>

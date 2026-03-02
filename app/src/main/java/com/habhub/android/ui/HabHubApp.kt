@@ -6,8 +6,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -34,6 +32,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -102,6 +101,7 @@ fun HabHubApp(
     val scope = rememberCoroutineScope()
     var showAddDialog by rememberSaveable { mutableStateOf(false) }
     var editingHabit by remember { mutableStateOf<HabitEditUiModel?>(null) }
+    var deletingHabit by remember { mutableStateOf<HabitEditUiModel?>(null) }
     var currentTab by rememberSaveable { mutableStateOf(AppTab.TODAY) }
 
     val errorMessage = when (uiState.inputError) {
@@ -207,9 +207,36 @@ fun HabHubApp(
                     title = stringResource(R.string.edit_habit),
                     initial = editing,
                     onDismiss = { editingHabit = null },
+                    onDelete = {
+                        editingHabit = null
+                        deletingHabit = editing
+                    },
                     onSave = {
                         vm.updateHabit(editing.id, it)
                         editingHabit = null
+                    }
+                )
+            }
+
+            deletingHabit?.let { deleting ->
+                AlertDialog(
+                    onDismissRequest = { deletingHabit = null },
+                    title = { Text(text = stringResource(R.string.delete_habit_title)) },
+                    text = {
+                        Text(text = stringResource(R.string.delete_habit_message, deleting.title))
+                    },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            vm.deleteHabit(deleting.id)
+                            deletingHabit = null
+                        }) {
+                            Text(text = stringResource(R.string.delete_habit_confirm))
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { deletingHabit = null }) {
+                            Text(text = stringResource(R.string.cancel))
+                        }
                     }
                 )
             }
@@ -280,11 +307,11 @@ private fun HabitsContent(
         modifier = modifier
             .fillMaxSize()
             .padding(horizontal = 20.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         item {
             Text(text = stringResource(R.string.tab_habits), style = MaterialTheme.typography.headlineMedium)
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(4.dp))
         }
         if (items.isEmpty()) {
             item {
@@ -300,7 +327,9 @@ private fun HabitsContent(
                 val canMoveUp = index > 0
                 val canMoveDown = index < items.lastIndex
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -336,7 +365,7 @@ private fun HabitsContent(
                         }
                     }
                 }
-                Divider(color = Color(0xFFE6E6E6))
+                Divider(color = Color(0xFFE6E6E6), thickness = 0.75.dp)
             }
         }
     }
@@ -396,11 +425,11 @@ private fun SettingsContent(
 }
 
 @Composable
-@OptIn(ExperimentalLayoutApi::class)
 private fun HabitFormDialog(
     title: String,
     initial: HabitEditUiModel?,
     onDismiss: () -> Unit,
+    onDelete: (() -> Unit)? = null,
     onSave: (NewHabitInput) -> Unit
 ) {
     var habitTitle by remember(initial) { mutableStateOf(initial?.title.orEmpty()) }
@@ -418,10 +447,11 @@ private fun HabitFormDialog(
         onDismissRequest = onDismiss,
         title = { Text(text = title) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 TextField(
                     value = habitTitle,
                     onValueChange = { habitTitle = it },
+                    modifier = Modifier.fillMaxWidth(),
                     placeholder = { Text(text = stringResource(R.string.habit_title_hint)) }
                 )
 
@@ -447,26 +477,31 @@ private fun HabitFormDialog(
                 TextField(
                     value = reminderTime,
                     onValueChange = { reminderTime = normalizeTimeInput(it) },
+                    modifier = Modifier.fillMaxWidth(),
                     placeholder = { Text(text = stringResource(R.string.reminder_time_hint)) }
                 )
                 TextField(
                     value = webLink,
                     onValueChange = { webLink = it },
+                    modifier = Modifier.fillMaxWidth(),
                     placeholder = { Text(text = stringResource(R.string.web_link_hint)) }
                 )
                 TextField(
                     value = appLink,
                     onValueChange = { appLink = it },
+                    modifier = Modifier.fillMaxWidth(),
                     placeholder = { Text(text = stringResource(R.string.app_link_hint)) }
                 )
                 TextField(
                     value = startDate,
                     onValueChange = { startDate = it },
+                    modifier = Modifier.fillMaxWidth(),
                     placeholder = { Text(text = stringResource(R.string.start_date_hint)) }
                 )
                 TextField(
                     value = endDate,
                     onValueChange = { endDate = it },
+                    modifier = Modifier.fillMaxWidth(),
                     placeholder = { Text(text = stringResource(R.string.end_date_hint)) }
                 )
 
@@ -484,17 +519,20 @@ private fun HabitFormDialog(
 
                 Text(text = stringResource(R.string.weekday_hint), style = MaterialTheme.typography.labelMedium)
                 if (!isOneTime) {
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         weekDayLabels.forEachIndexed { index, label ->
                             val checked = selectedDays.contains(index)
-                            OutlinedButton(onClick = {
-                                selectedDays = if (checked) selectedDays - index else selectedDays + index
-                            }) {
-                                Text(if (checked) "✓$label" else label)
-                            }
+                            FilterChip(
+                                selected = checked,
+                                onClick = {
+                                    selectedDays = if (checked) selectedDays - index else selectedDays + index
+                                },
+                                label = { Text(label) },
+                                modifier = Modifier.weight(1f)
+                            )
                         }
                     }
                 }
@@ -518,7 +556,14 @@ private fun HabitFormDialog(
             }) { Text(text = stringResource(R.string.save)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(text = stringResource(R.string.cancel)) }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                onDelete?.let {
+                    TextButton(onClick = it) {
+                        Text(text = stringResource(R.string.delete_habit), color = MaterialTheme.colorScheme.error)
+                    }
+                }
+                TextButton(onClick = onDismiss) { Text(text = stringResource(R.string.cancel)) }
+            }
         }
     )
 }
