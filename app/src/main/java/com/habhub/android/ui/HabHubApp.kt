@@ -83,7 +83,7 @@ import java.time.LocalDate
 
 private enum class AppTab { TODAY, HABITS, SETTINGS }
 
-private val weekDayLabels = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+private val weekDayLabels = listOf("M", "T", "W", "T", "F", "S", "S")
 private const val linkOpenTestUrl = "https://developer.android.com"
 
 @Composable
