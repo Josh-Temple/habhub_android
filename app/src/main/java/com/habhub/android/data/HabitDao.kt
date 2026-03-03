@@ -149,7 +149,16 @@ interface HabitDao {
 
     @Query(
         """
-        SELECT s.*, h.title AS habit_title
+        SELECT
+          s.*, 
+          h.title AS habit_title,
+          (
+            SELECT l.url_or_intent
+            FROM habit_links l
+            WHERE l.habit_id = s.habit_id
+            ORDER BY l.sort_order ASC
+            LIMIT 1
+          ) AS reminder_link
         FROM habit_schedules s
         INNER JOIN habits h ON h.id = s.habit_id
         WHERE s.reminder_enabled = 1 AND s.reminder_time_local IS NOT NULL
@@ -159,7 +168,16 @@ interface HabitDao {
 
     @Query(
         """
-        SELECT s.*, h.title AS habit_title
+        SELECT
+          s.*, 
+          h.title AS habit_title,
+          (
+            SELECT l.url_or_intent
+            FROM habit_links l
+            WHERE l.habit_id = s.habit_id
+            ORDER BY l.sort_order ASC
+            LIMIT 1
+          ) AS reminder_link
         FROM habit_schedules s
         INNER JOIN habits h ON h.id = s.habit_id
         WHERE s.habit_id = :habitId
@@ -192,5 +210,6 @@ data class ReminderScheduleRow(
     val timezone_id: String,
     val start_date: String,
     val end_date: String?,
-    val habit_title: String
+    val habit_title: String,
+    val reminder_link: String?
 )
