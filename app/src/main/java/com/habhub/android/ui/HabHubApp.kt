@@ -61,7 +61,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -365,7 +364,7 @@ private fun HabitsContent(
                         }
                     }
                 }
-                Divider(color = Color(0xFFE6E6E6), thickness = 0.75.dp)
+                Divider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.75.dp)
             }
         }
     }
@@ -640,8 +639,8 @@ private fun Header() {
             )
             Text(
                 text = stringResource(R.string.tab_today),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary
             )
         }
 
@@ -723,6 +722,6 @@ private fun HabitRow(
                 }
             }
         }
-        Divider(color = Color(0xFFE6E6E6))
+        Divider(color = MaterialTheme.colorScheme.outlineVariant)
     }
 }
