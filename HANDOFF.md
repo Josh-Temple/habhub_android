@@ -42,3 +42,41 @@
 3. ベルアイコンがTodayには出ず、Habits一覧にのみ表示されること。
 4. Today完了トグル時のアニメーションが過度でなく、操作感を阻害しないこと。
 5. DB v2 への移行端末で既存データが想定どおり扱えること（destructive migration許容方針の確認）。
+
+## Session update (English)
+- Added Today header kebab menu actions:
+  - Help dialog entry point.
+  - Day-boundary switch hour picker (0:00 to 5:00, default remains 0:00).
+- Added persisted user preferences via `SharedPreferences`:
+  - `day_boundary_hour`
+  - `font_scale_level`
+- Added display customization in Settings:
+  - Font scale chips (Small / Normal / Large).
+- Added per-habit color token support:
+  - Color is selectable in the add/edit habit dialog.
+  - Habit icon tint reflects the selected color in Today and Habits lists.
+- Updated business-date handling:
+  - Completion toggle uses configured day boundary.
+  - ReminderWorker completion guard now uses configured business date.
+
+### Follow-up verification requested next session
+1. Verify day-boundary behavior around midnight (e.g., 02:59 vs 03:00 when boundary is 03:00).
+2. Verify existing habits without color token still render with theme default icon color.
+3. Verify help/date-boundary kebab menu behavior on small screens.
+4. Consider moving preference storage from SharedPreferences to DataStore in a future refactor.
+
+
+## Session update (English) — Refactor follow-up
+- Refactored `HabitViewModel` to centralize Today-list observation in `startTodayObservation()` and removed duplicated observer setup logic.
+- Added an early-return guard in `setDayBoundaryHour()` to avoid unnecessary resubscription when the selected hour does not change.
+- Refactored UI constants/labels:
+  - Extracted day-boundary menu options into a single `dayBoundaryOptions` constant.
+  - Replaced enum-name derived font-scale labels with explicit string resources (`font_scale_small`, `font_scale_normal`, `font_scale_large`).
+- Added unit tests for business date behavior:
+  - Midnight boundary behavior.
+  - 03:00 boundary before/after edge cases.
+  - Invalid boundary coercion.
+
+### Follow-up verification requested next session
+1. Confirm Japanese/localized copy for new font scale labels if localization policy requires `values-ja`.
+2. Consider extracting Today header menu into its own composable file if UI continues to grow.

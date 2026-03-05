@@ -33,6 +33,7 @@ import androidx.compose.material.icons.rounded.Spa
 import androidx.compose.material.icons.rounded.SportsBasketball
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.VolunteerActivism
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 
 enum class LinkType {
@@ -44,6 +45,7 @@ data class HabitUiModel(
     val id: String,
     val title: String,
     val icon: ImageVector,
+    val colorToken: String?,
     val reminderTime: String?,
     val links: List<HabitLinkUiModel>,
     val completedToday: Boolean
@@ -53,6 +55,7 @@ data class HabitEditUiModel(
     val id: String,
     val title: String,
     val iconName: String,
+    val colorToken: String?,
     val sortOrder: Int,
     val reminderTime: String?,
     val webLink: String?,
@@ -71,6 +74,7 @@ data class HabitLinkUiModel(
 data class NewHabitInput(
     val title: String,
     val iconName: String,
+    val colorToken: String?,
     val reminderTime: String?,
     val webLink: String?,
     val appLink: String?,
@@ -83,6 +87,11 @@ data class NewHabitInput(
 data class HabitIconOption(
     val key: String,
     val icon: ImageVector
+)
+
+data class HabitColorOption(
+    val key: String,
+    val color: Color
 )
 
 val habitIconOptions: List<HabitIconOption> = listOf(
@@ -124,3 +133,18 @@ fun iconForSymbol(symbol: String): ImageVector {
 
 val webLinkIcon: ImageVector = Icons.Rounded.OpenInBrowser
 val appLinkIcon: ImageVector = Icons.Rounded.OpenInNew
+
+val habitColorOptions: List<HabitColorOption> = listOf(
+    HabitColorOption("default", Color.Unspecified),
+    HabitColorOption("coral", Color(0xFFE57373)),
+    HabitColorOption("amber", Color(0xFFFFB74D)),
+    HabitColorOption("leaf", Color(0xFF81C784)),
+    HabitColorOption("teal", Color(0xFF4DB6AC)),
+    HabitColorOption("sky", Color(0xFF64B5F6)),
+    HabitColorOption("violet", Color(0xFF9575CD))
+)
+
+fun colorForToken(token: String?): Color {
+    if (token.isNullOrBlank() || token == "default") return Color.Unspecified
+    return habitColorOptions.firstOrNull { it.key == token }?.color ?: Color.Unspecified
+}

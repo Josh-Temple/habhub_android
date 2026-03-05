@@ -9,11 +9,15 @@ import com.habhub.android.domain.HabitUiModel
 import com.habhub.android.domain.NewHabitInput
 import com.habhub.android.notifications.ReminderScheduler
 import com.habhub.android.repository.HabitRepository
+import com.habhub.android.repository.FontScaleLevel
+import com.habhub.android.repository.UserPreferencesRepository
 import com.habhub.android.util.LinkValidator
+import com.habhub.android.util.businessDate
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
@@ -31,16 +35,25 @@ data class TodayUiState(
     val items: List<HabitUiModel> = emptyList(),
     val manageItems: List<HabitEditUiModel> = emptyList(),
     val notificationsEnabled: Boolean = true,
+    val dayBoundaryHour: Int = 0,
+    val fontScaleLevel: FontScaleLevel = FontScaleLevel.NORMAL,
     val isLoading: Boolean = true,
     val inputError: HabitInputError? = null
 )
 
 class HabitViewModel(
     private val repo: HabitRepository,
-    private val scheduler: ReminderScheduler
+    private val scheduler: ReminderScheduler,
+    private val preferences: UserPreferencesRepository
 ) : ViewModel() {
-    private val _uiState = MutableStateFlow(TodayUiState())
+    private val _uiState = MutableStateFlow(
+        TodayUiState(
+            dayBoundaryHour = preferences.getDayBoundaryHour(),
+            fontScaleLevel = runCatching { FontScaleLevel.valueOf(preferences.getFontScaleLevel()) }.getOrDefault(FontScaleLevel.NORMAL)
+        )
+    )
     val uiState: StateFlow<TodayUiState> = _uiState.asStateFlow()
+    private var todayObserverJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -48,11 +61,7 @@ class HabitViewModel(
             scheduler.scheduleDailyReminders(repo.getReminderSchedules())
         }
 
-        viewModelScope.launch {
-            repo.observeTodayHabits().collect { list ->
-                _uiState.update { it.copy(items = list, isLoading = false) }
-            }
-        }
+        startTodayObservation()
 
         viewModelScope.launch {
             repo.observeManageHabits().collect { list ->
@@ -63,8 +72,21 @@ class HabitViewModel(
 
     fun onCompletionToggle(habitId: String, checked: Boolean) {
         viewModelScope.launch {
-            repo.toggleCompletion(habitId, checked)
+            repo.toggleCompletion(habitId, checked, currentBusinessDate())
         }
+    }
+
+    fun setDayBoundaryHour(hour: Int) {
+        val normalized = hour.coerceIn(0, 23)
+        if (normalized == _uiState.value.dayBoundaryHour) return
+        preferences.setDayBoundaryHour(normalized)
+        _uiState.update { it.copy(dayBoundaryHour = normalized, isLoading = true) }
+        startTodayObservation()
+    }
+
+    fun setFontScaleLevel(level: FontScaleLevel) {
+        preferences.setFontScaleLevel(level)
+        _uiState.update { it.copy(fontScaleLevel = level) }
     }
 
 
@@ -182,16 +204,29 @@ class HabitViewModel(
         val scheme = Uri.parse(trimmed).scheme
         return if (scheme.isNullOrBlank()) "https://$trimmed" else trimmed
     }
+
+
+    private fun startTodayObservation() {
+        todayObserverJob?.cancel()
+        todayObserverJob = viewModelScope.launch {
+            repo.observeTodayHabits(today = currentBusinessDate()).collect { list ->
+                _uiState.update { it.copy(items = list, isLoading = false) }
+            }
+        }
+    }
+
+    private fun currentBusinessDate(): LocalDate = businessDate(_uiState.value.dayBoundaryHour)
 }
 
 class HabitViewModelFactory(
     private val repo: HabitRepository,
-    private val scheduler: ReminderScheduler
+    private val scheduler: ReminderScheduler,
+    private val preferences: UserPreferencesRepository
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(HabitViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return HabitViewModel(repo, scheduler) as T
+            return HabitViewModel(repo, scheduler, preferences) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
     }

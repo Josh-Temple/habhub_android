@@ -15,6 +15,8 @@ import androidx.work.WorkerParameters
 import com.habhub.android.MainActivity
 import com.habhub.android.R
 import com.habhub.android.data.HabHubDatabase
+import com.habhub.android.repository.UserPreferencesRepository
+import com.habhub.android.util.businessDate
 
 class ReminderWorker(
     appContext: Context,
@@ -25,7 +27,8 @@ class ReminderWorker(
         val habitId = inputData.getString(KEY_HABIT_ID) ?: return Result.success()
         val title = inputData.getString(KEY_HABIT_TITLE) ?: applicationContext.getString(R.string.app_name)
 
-        val today = java.time.LocalDate.now().toString()
+        val dayBoundaryHour = UserPreferencesRepository(applicationContext).getDayBoundaryHour()
+        val today = businessDate(dayBoundaryHour).toString()
         val dao = HabHubDatabase.getInstance(applicationContext).habitDao()
         if (dao.isHabitCompletedOnDate(habitId, today)) {
             val row = dao.getReminderScheduleRowByHabitId(habitId)
