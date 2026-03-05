@@ -11,6 +11,7 @@ data class TodayHabitRow(
     val id: String,
     val title: String,
     val icon_name: String,
+    val color_token: String?,
     val sort_order: Int,
     val reminder_time_local: String?,
     val completed_flag: Int
@@ -20,6 +21,7 @@ data class HabitManageRow(
     val id: String,
     val title: String,
     val icon_name: String,
+    val color_token: String?,
     val sort_order: Int,
     val reminder_time_local: String?,
     val is_one_time: Boolean,
@@ -36,6 +38,7 @@ interface HabitDao {
           h.id AS id,
           h.title AS title,
           h.icon_name AS icon_name,
+          h.color_token AS color_token,
           h.sort_order AS sort_order,
           s.reminder_time_local AS reminder_time_local,
           CASE WHEN c.id IS NULL THEN 0 ELSE 1 END AS completed_flag
@@ -58,6 +61,7 @@ interface HabitDao {
           h.id AS id,
           h.title AS title,
           h.icon_name AS icon_name,
+          h.color_token AS color_token,
           h.sort_order AS sort_order,
           s.reminder_time_local AS reminder_time_local,
           h.is_one_time AS is_one_time,

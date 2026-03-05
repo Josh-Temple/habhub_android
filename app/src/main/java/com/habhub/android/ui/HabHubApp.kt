@@ -61,8 +61,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -73,9 +75,12 @@ import com.habhub.android.domain.HabitUiModel
 import com.habhub.android.domain.LinkType
 import com.habhub.android.domain.NewHabitInput
 import com.habhub.android.domain.appLinkIcon
+import com.habhub.android.domain.colorForToken
+import com.habhub.android.domain.habitColorOptions
 import com.habhub.android.domain.habitIconOptions
 import com.habhub.android.domain.iconForSymbol
 import com.habhub.android.domain.webLinkIcon
+import com.habhub.android.repository.FontScaleLevel
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
@@ -83,6 +88,7 @@ private enum class AppTab { TODAY, HABITS, SETTINGS }
 
 private val weekDayLabels = listOf("M", "T", "W", "T", "F", "S", "S")
 private const val linkOpenTestUrl = "https://developer.android.com"
+private val dayBoundaryOptions = 0..5
 
 @Composable
 fun HabHubApp(
@@ -101,6 +107,7 @@ fun HabHubApp(
     var showAddDialog by rememberSaveable { mutableStateOf(false) }
     var editingHabit by remember { mutableStateOf<HabitEditUiModel?>(null) }
     var deletingHabit by remember { mutableStateOf<HabitEditUiModel?>(null) }
+    var showHelpDialog by remember { mutableStateOf(false) }
     var currentTab by rememberSaveable { mutableStateOf(AppTab.TODAY) }
 
     val errorMessage = when (uiState.inputError) {
@@ -158,8 +165,12 @@ fun HabHubApp(
                     isLoading = uiState.isLoading,
                     uncompleted = uncompleted,
                     completed = completed,
+                    dayBoundaryHour = uiState.dayBoundaryHour,
+                    fontScale = uiState.fontScaleLevel.scale,
                     padding = padding,
                     onToggle = { id, checked -> vm.onCompletionToggle(id, checked) },
+                    onHelpClick = { showHelpDialog = true },
+                    onBoundaryHourSelected = vm::setDayBoundaryHour,
                     onLinkOpenFailed = {
                         scope.launch { snackbarHostState.showSnackbar(it) }
                     }
@@ -179,6 +190,8 @@ fun HabHubApp(
                     onNotificationsChange = vm::setNotificationsEnabled,
                     useDarkTheme = useDarkTheme,
                     onThemeChange = onThemeChange,
+                    fontScaleLevel = uiState.fontScaleLevel,
+                    onFontScaleChange = vm::setFontScaleLevel,
                     onOpenTestUrl = {
                         runCatching {
                             openLink(context = it, payload = linkOpenTestUrl)
@@ -217,6 +230,19 @@ fun HabHubApp(
                 )
             }
 
+            if (showHelpDialog) {
+                AlertDialog(
+                    onDismissRequest = { showHelpDialog = false },
+                    title = { Text(text = stringResource(R.string.help_title)) },
+                    text = { Text(text = stringResource(R.string.help_message)) },
+                    confirmButton = {
+                        TextButton(onClick = { showHelpDialog = false }) {
+                            Text(text = stringResource(R.string.close))
+                        }
+                    }
+                )
+            }
+
             deletingHabit?.let { deleting ->
                 AlertDialog(
                     onDismissRequest = { deletingHabit = null },
@@ -248,8 +274,12 @@ private fun TodayContent(
     isLoading: Boolean,
     uncompleted: List<HabitUiModel>,
     completed: List<HabitUiModel>,
+    dayBoundaryHour: Int,
+    fontScale: Float,
     padding: PaddingValues,
     onToggle: (String, Boolean) -> Unit,
+    onHelpClick: () -> Unit,
+    onBoundaryHourSelected: (Int) -> Unit,
     onLinkOpenFailed: (String) -> Unit
 ) {
     if (isLoading) {
@@ -268,26 +298,28 @@ private fun TodayContent(
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             item {
-                Header()
+                Header(dayBoundaryHour = dayBoundaryHour, onHelpClick = onHelpClick, onBoundaryHourSelected = onBoundaryHourSelected)
                 Spacer(modifier = Modifier.height(20.dp))
-                SectionTitle(stringResource(R.string.section_uncompleted), uncompleted.size)
+                SectionTitle(stringResource(R.string.section_uncompleted), uncompleted.size, fontScale)
             }
             items(uncompleted, key = { it.id }) { habit ->
                 HabitRow(
                     habit = habit,
                     onToggle = { onToggle(habit.id, !habit.completedToday) },
-                    onLinkOpenFailed = onLinkOpenFailed
+                    onLinkOpenFailed = onLinkOpenFailed,
+                    fontScale = fontScale
                 )
             }
             item {
                 Spacer(modifier = Modifier.height(14.dp))
-                SectionTitle(stringResource(R.string.section_completed), completed.size)
+                SectionTitle(stringResource(R.string.section_completed), completed.size, fontScale)
             }
             items(completed, key = { it.id }) { habit ->
                 HabitRow(
                     habit = habit,
                     onToggle = { onToggle(habit.id, !habit.completedToday) },
-                    onLinkOpenFailed = onLinkOpenFailed
+                    onLinkOpenFailed = onLinkOpenFailed,
+                    fontScale = fontScale
                 )
             }
         }
@@ -333,7 +365,7 @@ private fun HabitsContent(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(imageVector = iconForSymbol(row.iconName), contentDescription = row.title)
+                        Icon(imageVector = iconForSymbol(row.iconName), contentDescription = row.title, tint = colorForToken(row.colorToken).takeOrElse { MaterialTheme.colorScheme.onBackground })
                         Column {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Text(text = row.title)
@@ -377,6 +409,8 @@ private fun SettingsContent(
     onNotificationsChange: (Boolean) -> Unit,
     useDarkTheme: Boolean,
     onThemeChange: (Boolean) -> Unit,
+    fontScaleLevel: FontScaleLevel,
+    onFontScaleChange: (FontScaleLevel) -> Unit,
     onOpenTestUrl: (android.content.Context) -> Unit
 ) {
     val context = LocalContext.current
@@ -403,6 +437,16 @@ private fun SettingsContent(
         ) {
             Text(text = stringResource(R.string.settings_dark_theme))
             Switch(checked = useDarkTheme, onCheckedChange = onThemeChange)
+        }
+        Text(text = stringResource(R.string.settings_font_size), style = MaterialTheme.typography.labelMedium)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FontScaleLevel.entries.forEach { level ->
+                FilterChip(
+                    selected = fontScaleLevel == level,
+                    onClick = { onFontScaleChange(level) },
+                    label = { Text(text = stringResource(fontScaleLabel(level))) }
+                )
+            }
         }
         OutlinedButton(
             onClick = { onOpenTestUrl(context) },
@@ -433,6 +477,7 @@ private fun HabitFormDialog(
 ) {
     var habitTitle by remember(initial) { mutableStateOf(initial?.title.orEmpty()) }
     var selectedIconName by remember(initial) { mutableStateOf(initial?.iconName ?: habitIconOptions.first().key) }
+    var selectedColorToken by remember(initial) { mutableStateOf(initial?.colorToken ?: "default") }
     var reminderTime by remember(initial) { mutableStateOf(initial?.reminderTime.orEmpty()) }
     var webLink by remember(initial) { mutableStateOf(initial?.webLink.orEmpty()) }
     var appLink by remember(initial) { mutableStateOf(initial?.appLink.orEmpty()) }
@@ -441,6 +486,7 @@ private fun HabitFormDialog(
     var selectedDays by remember(initial) { mutableStateOf(maskToDays(initial?.repeatDaysMask)) }
     var isOneTime by remember(initial) { mutableStateOf(initial?.isOneTime ?: false) }
     var iconMenuExpanded by remember { mutableStateOf(false) }
+    var colorMenuExpanded by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -468,6 +514,21 @@ private fun HabitFormDialog(
                             onClick = {
                                 selectedIconName = option.key
                                 iconMenuExpanded = false
+                            }
+                        )
+                    }
+                }
+
+                OutlinedButton(onClick = { colorMenuExpanded = true }) {
+                    Text(text = stringResource(R.string.habit_color_label, selectedColorToken))
+                }
+                DropdownMenu(expanded = colorMenuExpanded, onDismissRequest = { colorMenuExpanded = false }) {
+                    habitColorOptions.forEach { option ->
+                        DropdownMenuItem(
+                            text = { Text(option.key) },
+                            onClick = {
+                                selectedColorToken = option.key
+                                colorMenuExpanded = false
                             }
                         )
                     }
@@ -543,6 +604,7 @@ private fun HabitFormDialog(
                     NewHabitInput(
                         title = habitTitle,
                         iconName = selectedIconName,
+                        colorToken = selectedColorToken,
                         reminderTime = normalizeTimeInput(reminderTime),
                         webLink = webLink,
                         appLink = appLink,
@@ -624,8 +686,26 @@ private fun daysToMask(days: Set<Int>): Int? {
     return mask
 }
 
+private fun scaledStyle(style: TextStyle, scale: Float): TextStyle {
+    return style.copy(fontSize = style.fontSize * scale)
+}
+
+
+private fun fontScaleLabel(level: FontScaleLevel): Int {
+    return when (level) {
+        FontScaleLevel.SMALL -> R.string.font_scale_small
+        FontScaleLevel.NORMAL -> R.string.font_scale_normal
+        FontScaleLevel.LARGE -> R.string.font_scale_large
+    }
+}
+
 @Composable
-private fun Header() {
+private fun Header(
+    dayBoundaryHour: Int,
+    onHelpClick: () -> Unit,
+    onBoundaryHourSelected: (Int) -> Unit
+) {
+    var menuExpanded by remember { mutableStateOf(false) }
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -644,17 +724,41 @@ private fun Header() {
             )
         }
 
-        IconButton(onClick = { }) {
-            Icon(Icons.Rounded.MoreVert, contentDescription = stringResource(R.string.menu))
+        Column(horizontalAlignment = Alignment.End) {
+            IconButton(onClick = { menuExpanded = true }) {
+                Icon(Icons.Rounded.MoreVert, contentDescription = stringResource(R.string.menu))
+            }
+            DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.help_title)) },
+                    onClick = {
+                        menuExpanded = false
+                        onHelpClick()
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.day_boundary_menu_label, dayBoundaryHour)) },
+                    onClick = { menuExpanded = false }
+                )
+                dayBoundaryOptions.forEach { hour ->
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.day_boundary_option, hour)) },
+                        onClick = {
+                            onBoundaryHourSelected(hour)
+                            menuExpanded = false
+                        }
+                    )
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun SectionTitle(title: String, count: Int) {
+private fun SectionTitle(title: String, count: Int, fontScale: Float) {
     Text(
         text = "$title $count",
-        style = MaterialTheme.typography.labelLarge,
+        style = scaledStyle(MaterialTheme.typography.labelLarge, fontScale),
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(vertical = 6.dp)
     )
@@ -664,7 +768,8 @@ private fun SectionTitle(title: String, count: Int) {
 private fun HabitRow(
     habit: HabitUiModel,
     onToggle: () -> Unit,
-    onLinkOpenFailed: (String) -> Unit
+    onLinkOpenFailed: (String) -> Unit,
+    fontScale: Float
 ) {
     val context = LocalContext.current
     val scale by animateFloatAsState(
@@ -693,11 +798,11 @@ private fun HabitRow(
             Icon(
                 imageVector = habit.icon,
                 contentDescription = stringResource(R.string.cd_habit_icon),
-                tint = MaterialTheme.colorScheme.onBackground
+                tint = colorForToken(habit.colorToken).takeOrElse { MaterialTheme.colorScheme.onBackground }
             )
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = habit.title, style = MaterialTheme.typography.bodyLarge)
+                Text(text = habit.title, style = scaledStyle(MaterialTheme.typography.bodyLarge, fontScale))
                 habit.reminderTime?.let {
                     Text(text = it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }

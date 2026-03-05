@@ -42,6 +42,16 @@
     <string name="cd_app_link">Open app link</string>
     <string name="settings_notifications">Enable notifications</string>
     <string name="settings_dark_theme">Use dark theme</string>
+    <string name="settings_font_size">Display size</string>
+    <string name="font_scale_small">Small</string>
+    <string name="font_scale_normal">Normal</string>
+    <string name="font_scale_large">Large</string>
+    <string name="habit_color_label">Color: %1$s</string>
+    <string name="help_title">Help</string>
+    <string name="help_message">Set your day boundary so late-night completions still count for the previous day. You can also edit habit colors from the habit form.</string>
+    <string name="close">Close</string>
+    <string name="day_boundary_menu_label">Day switches at %1$d:00</string>
+    <string name="day_boundary_option">Switch at %1$d:00</string>
     <string name="settings_link_test_button">Test opening URL in app</string>
     <string name="settings_link_test_value">Test URL: %1$s</string>
     <string name="settings_note">Additional settings will be expanded in next iterations.</string>
