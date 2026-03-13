@@ -8,16 +8,20 @@ import com.habhub.android.domain.HabitEditUiModel
 import com.habhub.android.domain.HabitUiModel
 import com.habhub.android.domain.NewHabitInput
 import com.habhub.android.notifications.ReminderScheduler
-import com.habhub.android.repository.HabitRepository
 import com.habhub.android.repository.FontScaleLevel
+import com.habhub.android.repository.HabitRepository
+import com.habhub.android.repository.ThemeMode
 import com.habhub.android.repository.UserPreferencesRepository
 import com.habhub.android.util.LinkValidator
 import com.habhub.android.util.businessDate
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
@@ -37,6 +41,7 @@ data class TodayUiState(
     val notificationsEnabled: Boolean = true,
     val dayBoundaryHour: Int = 0,
     val fontScaleLevel: FontScaleLevel = FontScaleLevel.NORMAL,
+    val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val isLoading: Boolean = true,
     val inputError: HabitInputError? = null
 )
@@ -46,16 +51,33 @@ class HabitViewModel(
     private val scheduler: ReminderScheduler,
     private val preferences: UserPreferencesRepository
 ) : ViewModel() {
-    private val _uiState = MutableStateFlow(
-        TodayUiState(
-            dayBoundaryHour = preferences.getDayBoundaryHour(),
-            fontScaleLevel = runCatching { FontScaleLevel.valueOf(preferences.getFontScaleLevel()) }.getOrDefault(FontScaleLevel.NORMAL)
-        )
-    )
+    private val _uiState = MutableStateFlow(TodayUiState())
     val uiState: StateFlow<TodayUiState> = _uiState.asStateFlow()
+
+    private val _permissionRequests = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val permissionRequests: SharedFlow<Unit> = _permissionRequests.asSharedFlow()
+
     private var todayObserverJob: Job? = null
 
     init {
+        viewModelScope.launch {
+            preferences.preferencesFlow.collect { prefs ->
+                val previousBoundary = _uiState.value.dayBoundaryHour
+                _uiState.update {
+                    it.copy(
+                        notificationsEnabled = prefs.notificationsEnabled,
+                        dayBoundaryHour = prefs.dayBoundaryHour,
+                        fontScaleLevel = prefs.fontScaleLevel,
+                        themeMode = prefs.themeMode
+                    )
+                }
+                if (previousBoundary != prefs.dayBoundaryHour) {
+                    _uiState.update { it.copy(isLoading = true) }
+                    startTodayObservation()
+                }
+            }
+        }
+
         viewModelScope.launch {
             repo.seedInitialDataIfNeeded()
             scheduler.scheduleDailyReminders(repo.getReminderSchedules())
@@ -77,18 +99,22 @@ class HabitViewModel(
     }
 
     fun setDayBoundaryHour(hour: Int) {
-        val normalized = hour.coerceIn(0, 23)
-        if (normalized == _uiState.value.dayBoundaryHour) return
-        preferences.setDayBoundaryHour(normalized)
-        _uiState.update { it.copy(dayBoundaryHour = normalized, isLoading = true) }
-        startTodayObservation()
+        viewModelScope.launch {
+            preferences.setDayBoundaryHour(hour)
+        }
     }
 
     fun setFontScaleLevel(level: FontScaleLevel) {
-        preferences.setFontScaleLevel(level)
-        _uiState.update { it.copy(fontScaleLevel = level) }
+        viewModelScope.launch {
+            preferences.setFontScaleLevel(level)
+        }
     }
 
+    fun setThemeMode(mode: ThemeMode) {
+        viewModelScope.launch {
+            preferences.setThemeMode(mode)
+        }
+    }
 
     fun moveHabit(habitId: String, direction: Int) {
         viewModelScope.launch {
@@ -106,7 +132,15 @@ class HabitViewModel(
     }
 
     fun setNotificationsEnabled(enabled: Boolean) {
-        _uiState.update { it.copy(notificationsEnabled = enabled) }
+        viewModelScope.launch {
+            preferences.setNotificationsEnabled(enabled)
+            if (enabled) {
+                _permissionRequests.tryEmit(Unit)
+                scheduler.scheduleDailyReminders(repo.getReminderSchedules())
+            } else {
+                scheduler.cancelAllReminders()
+            }
+        }
     }
 
     fun clearInputError() {
@@ -177,6 +211,9 @@ class HabitViewModel(
                 )
             )
 
+            if (!normalizedReminderTime.isNullOrBlank()) {
+                _permissionRequests.tryEmit(Unit)
+            }
             scheduler.scheduleDailyReminders(repo.getReminderSchedules())
             _uiState.update { it.copy(inputError = null) }
         }
@@ -204,7 +241,6 @@ class HabitViewModel(
         val scheme = Uri.parse(trimmed).scheme
         return if (scheme.isNullOrBlank()) "https://$trimmed" else trimmed
     }
-
 
     private fun startTodayObservation() {
         todayObserverJob?.cancel()

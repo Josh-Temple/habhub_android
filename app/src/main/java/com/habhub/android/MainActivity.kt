@@ -8,12 +8,14 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
 import androidx.core.content.ContextCompat
 import com.habhub.android.ui.HabHubApp
+import com.habhub.android.ui.HabitViewModel
 import com.habhub.android.ui.theme.HabHubTheme
+import kotlinx.coroutines.launch
+import androidx.lifecycle.ViewModelProvider
 
 class MainActivity : ComponentActivity() {
     private val requestPermissionLauncher =
@@ -21,17 +23,21 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        requestNotificationPermissionIfNeeded()
 
         val appContainer = AppContainer(this)
-        setContent {
-            var useDarkTheme by rememberSaveable { mutableStateOf(false) }
+        val viewModel = ViewModelProvider(this, appContainer.habitViewModelFactory)[HabitViewModel::class.java]
 
-            HabHubTheme(useDarkTheme = useDarkTheme) {
+        lifecycleScope.launch {
+            viewModel.permissionRequests.collect {
+                requestNotificationPermissionIfNeeded()
+            }
+        }
+
+        setContent {
+            val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+            HabHubTheme(themeMode = uiState.themeMode) {
                 HabHubApp(
-                    factory = appContainer.habitViewModelFactory,
-                    useDarkTheme = useDarkTheme,
-                    onThemeChange = { useDarkTheme = it }
+                    vm = viewModel
                 )
             }
         }

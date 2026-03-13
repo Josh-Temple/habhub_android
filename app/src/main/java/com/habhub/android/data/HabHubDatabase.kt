@@ -15,7 +15,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         CompletionLogEntity::class
     ],
     version = 2,
-    exportSchema = false
+    exportSchema = true
 )
 abstract class HabHubDatabase : RoomDatabase() {
     abstract fun habitDao(): HabitDao

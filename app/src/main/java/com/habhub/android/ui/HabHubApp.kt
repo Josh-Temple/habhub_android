@@ -67,7 +67,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.core.net.toUri
 import com.habhub.android.R
 import com.habhub.android.domain.HabitEditUiModel
@@ -81,6 +80,7 @@ import com.habhub.android.domain.habitIconOptions
 import com.habhub.android.domain.iconForSymbol
 import com.habhub.android.domain.webLinkIcon
 import com.habhub.android.repository.FontScaleLevel
+import com.habhub.android.repository.ThemeMode
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
@@ -92,11 +92,8 @@ private val dayBoundaryOptions = 0..5
 
 @Composable
 fun HabHubApp(
-    factory: HabitViewModelFactory,
-    useDarkTheme: Boolean,
-    onThemeChange: (Boolean) -> Unit
+    vm: HabitViewModel
 ) {
-    val vm: HabitViewModel = viewModel(factory = factory)
     val uiState by vm.uiState.collectAsStateWithLifecycle()
     val habits = uiState.items
     val uncompleted = habits.filterNot { it.completedToday }
@@ -188,8 +185,8 @@ fun HabHubApp(
                     modifier = Modifier.padding(padding),
                     notificationsEnabled = uiState.notificationsEnabled,
                     onNotificationsChange = vm::setNotificationsEnabled,
-                    useDarkTheme = useDarkTheme,
-                    onThemeChange = onThemeChange,
+                    themeMode = uiState.themeMode,
+                    onThemeChange = vm::setThemeMode,
                     fontScaleLevel = uiState.fontScaleLevel,
                     onFontScaleChange = vm::setFontScaleLevel,
                     onOpenTestUrl = {
@@ -407,8 +404,8 @@ private fun SettingsContent(
     modifier: Modifier = Modifier,
     notificationsEnabled: Boolean,
     onNotificationsChange: (Boolean) -> Unit,
-    useDarkTheme: Boolean,
-    onThemeChange: (Boolean) -> Unit,
+    themeMode: ThemeMode,
+    onThemeChange: (ThemeMode) -> Unit,
     fontScaleLevel: FontScaleLevel,
     onFontScaleChange: (FontScaleLevel) -> Unit,
     onOpenTestUrl: (android.content.Context) -> Unit
@@ -435,8 +432,16 @@ private fun SettingsContent(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(text = stringResource(R.string.settings_dark_theme))
-            Switch(checked = useDarkTheme, onCheckedChange = onThemeChange)
+            Text(text = stringResource(R.string.settings_theme))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ThemeMode.entries.forEach { mode ->
+                FilterChip(
+                    selected = themeMode == mode,
+                    onClick = { onThemeChange(mode) },
+                    label = { Text(text = stringResource(themeModeLabel(mode))) }
+                )
+            }
         }
         Text(text = stringResource(R.string.settings_font_size), style = MaterialTheme.typography.labelMedium)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -690,6 +695,14 @@ private fun scaledStyle(style: TextStyle, scale: Float): TextStyle {
     return style.copy(fontSize = style.fontSize * scale)
 }
 
+
+private fun themeModeLabel(mode: ThemeMode): Int {
+    return when (mode) {
+        ThemeMode.SYSTEM -> R.string.settings_theme_system
+        ThemeMode.LIGHT -> R.string.settings_theme_light
+        ThemeMode.DARK -> R.string.settings_theme_dark
+    }
+}
 
 private fun fontScaleLabel(level: FontScaleLevel): Int {
     return when (level) {

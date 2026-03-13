@@ -92,7 +92,7 @@ class HabitRepository(
         val now = System.currentTimeMillis()
         val zone = ZoneId.systemDefault().id
         val id = UUID.randomUUID().toString()
-        val sortOrder = now.toInt()
+        val sortOrder = dao.getMaxSortOrder() + 1
 
         dao.insertHabit(
             HabitEntity(
@@ -134,7 +134,7 @@ class HabitRepository(
             title = input.title,
             iconName = input.iconName,
             colorToken = input.colorToken ?: existingHabit?.colorToken,
-            sortOrder = existingHabit?.sortOrder ?: now.toInt(),
+            sortOrder = existingHabit?.sortOrder ?: (dao.getMaxSortOrder() + 1),
             isArchived = existingHabit?.isArchived ?: false,
             createdAtEpochMs = existingHabit?.createdAtEpochMs ?: now,
             updatedAtEpochMs = now,

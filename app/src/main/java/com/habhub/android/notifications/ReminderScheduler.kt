@@ -14,6 +14,10 @@ import java.time.ZonedDateTime
 import java.util.concurrent.TimeUnit
 
 class ReminderScheduler(private val context: Context) {
+    fun cancelAllReminders() {
+        WorkManager.getInstance(context).cancelAllWorkByTag(REMINDER_TAG)
+    }
+
     fun scheduleDailyReminders(rows: List<ReminderScheduleRow>) {
         val manager = WorkManager.getInstance(context)
         rows.forEach { row ->
@@ -64,6 +68,7 @@ class ReminderScheduler(private val context: Context) {
         val request = OneTimeWorkRequestBuilder<ReminderWorker>()
             .setInputData(data)
             .setInitialDelay(initialDelay.toMillis(), TimeUnit.MILLISECONDS)
+            .addTag(REMINDER_TAG)
             .build()
 
         manager.enqueueUniqueWork(
@@ -126,5 +131,9 @@ class ReminderScheduler(private val context: Context) {
         mask ?: return true
         val index = date.dayOfWeek.value - 1 // Monday=0 .. Sunday=6
         return (mask and (1 shl index)) != 0
+    }
+
+    companion object {
+        private const val REMINDER_TAG = "habit_reminder"
     }
 }
