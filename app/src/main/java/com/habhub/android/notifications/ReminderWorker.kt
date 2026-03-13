@@ -17,6 +17,7 @@ import com.habhub.android.R
 import com.habhub.android.data.HabHubDatabase
 import com.habhub.android.repository.UserPreferencesRepository
 import com.habhub.android.util.businessDate
+import kotlinx.coroutines.flow.first
 
 class ReminderWorker(
     appContext: Context,
@@ -27,7 +28,8 @@ class ReminderWorker(
         val habitId = inputData.getString(KEY_HABIT_ID) ?: return Result.success()
         val title = inputData.getString(KEY_HABIT_TITLE) ?: applicationContext.getString(R.string.app_name)
 
-        val dayBoundaryHour = UserPreferencesRepository(applicationContext).getDayBoundaryHour()
+        val prefs = UserPreferencesRepository(applicationContext).preferencesFlow.first()
+        val dayBoundaryHour = prefs.dayBoundaryHour
         val today = businessDate(dayBoundaryHour).toString()
         val dao = HabHubDatabase.getInstance(applicationContext).habitDao()
         if (dao.isHabitCompletedOnDate(habitId, today)) {
@@ -36,7 +38,7 @@ class ReminderWorker(
             return Result.success()
         }
 
-        if (ContextCompat.checkSelfPermission(
+        if (prefs.notificationsEnabled && ContextCompat.checkSelfPermission(
                 applicationContext,
                 Manifest.permission.POST_NOTIFICATIONS
             ) == PackageManager.PERMISSION_GRANTED

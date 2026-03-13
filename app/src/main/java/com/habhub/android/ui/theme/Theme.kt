@@ -5,6 +5,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import com.habhub.android.repository.ThemeMode
 
 private val LightColors = lightColorScheme(
     primary = AccentPrimary,
@@ -32,9 +33,15 @@ private val DarkColors = darkColorScheme(
 
 @Composable
 fun HabHubTheme(
-    useDarkTheme: Boolean = isSystemInDarkTheme(),
+    themeMode: ThemeMode = ThemeMode.SYSTEM,
     content: @Composable () -> Unit
 ) {
+    val useDarkTheme = when (themeMode) {
+        ThemeMode.SYSTEM -> isSystemInDarkTheme()
+        ThemeMode.LIGHT -> false
+        ThemeMode.DARK -> true
+    }
+
     MaterialTheme(
         colorScheme = if (useDarkTheme) DarkColors else LightColors,
         typography = Typography,

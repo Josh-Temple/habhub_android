@@ -88,6 +88,9 @@ interface HabitDao {
     @Query("SELECT COUNT(*) FROM habits")
     suspend fun countHabits(): Int
 
+    @Query("SELECT COALESCE(MAX(sort_order), 0) FROM habits")
+    suspend fun getMaxSortOrder(): Int
+
     @Query("SELECT EXISTS(SELECT 1 FROM completion_logs WHERE habit_id = :habitId AND local_date = :date)")
     suspend fun isHabitCompletedOnDate(habitId: String, date: String): Boolean
 
