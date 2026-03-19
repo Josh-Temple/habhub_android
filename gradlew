@@ -117,6 +117,14 @@ esac
 
 
 # Determine the Java command to use to start the JVM.
+if [ -z "$JAVA_HOME" ] ; then
+    if [ -n "$JAVA17_HOME" ] && [ -x "$JAVA17_HOME/bin/java" ] ; then
+        JAVA_HOME=$JAVA17_HOME
+    elif [ -x "$HOME/.local/share/mise/installs/java/17.0.2/bin/java" ] ; then
+        JAVA_HOME=$HOME/.local/share/mise/installs/java/17.0.2
+    fi
+fi
+
 if [ -n "$JAVA_HOME" ] ; then
     if [ -x "$JAVA_HOME/jre/sh/java" ] ; then
         # IBM's JDK on AIX uses strange locations for the executables
@@ -140,6 +148,19 @@ Please set the JAVA_HOME variable in your environment to match the
 location of your Java installation."
     fi
 fi
+
+java_version_output=$("$JAVACMD" -version 2>&1 | sed -n '1p')
+case $java_version_output in
+  *\"2[4-9]*|*\"[3-9][0-9]*)
+    if [ -n "$JAVA17_HOME" ] && [ -x "$JAVA17_HOME/bin/java" ] ; then
+        JAVA_HOME=$JAVA17_HOME
+        JAVACMD=$JAVA_HOME/bin/java
+    elif [ -x "$HOME/.local/share/mise/installs/java/17.0.2/bin/java" ] ; then
+        JAVA_HOME=$HOME/.local/share/mise/installs/java/17.0.2
+        JAVACMD=$JAVA_HOME/bin/java
+    fi
+    ;;
+esac
 
 # Increase the maximum file descriptors if we can.
 if ! "$cygwin" && ! "$darwin" && ! "$nonstop" ; then
