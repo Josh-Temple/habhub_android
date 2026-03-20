@@ -27,7 +27,7 @@ jobs:
 
   signed-debug-apk:
     name: Signed debug APK (when secrets exist)
-    uses: Josh-Temple/Ingrain/.github/workflows/reusable-android-debug-apk.yml@56019b0963e5970fba0f73e6591c9c8f2fb11cff
+    uses: Josh-Temple/Ingrain/.github/workflows/reusable-android-debug-apk.yml@v1
     with:
       app_module: app
       gradle_task: assembleDebug
