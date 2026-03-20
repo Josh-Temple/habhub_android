@@ -4,6 +4,16 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
+val ciDebugKeystoreFile = providers.gradleProperty("CI_DEBUG_KEYSTORE_FILE")
+val ciDebugKeystorePassword = providers.gradleProperty("CI_DEBUG_KEYSTORE_PASSWORD")
+val ciDebugKeyAlias = providers.gradleProperty("CI_DEBUG_KEY_ALIAS")
+val ciDebugKeyPassword = providers.gradleProperty("CI_DEBUG_KEY_PASSWORD")
+val hasCiDebugSigning =
+    ciDebugKeystoreFile.isPresent &&
+        ciDebugKeystorePassword.isPresent &&
+        ciDebugKeyAlias.isPresent &&
+        ciDebugKeyPassword.isPresent
+
 android {
     namespace = "com.habhub.android"
     compileSdk = 34
@@ -22,6 +32,16 @@ android {
     }
 
     buildTypes {
+        debug {
+            if (hasCiDebugSigning) {
+                signingConfig = signingConfigs.create("ciDebug") {
+                    storeFile = file(ciDebugKeystoreFile.get())
+                    storePassword = ciDebugKeystorePassword.get()
+                    keyAlias = ciDebugKeyAlias.get()
+                    keyPassword = ciDebugKeyPassword.get()
+                }
+            }
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(

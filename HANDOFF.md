@@ -65,3 +65,24 @@
 
 ### Recommended next task
 1. From a network-enabled environment, resolve `Josh-Temple/Ingrain/.github/workflows/reusable-android-debug-apk.yml@v1` to its exact commit SHA and replace the tag ref with that SHA for supply-chain immutability.
+
+## 2026-03-20 follow-up 2: remove external reusable workflow dependency for signed debug build
+
+### What changed
+1. Replaced the `signed-debug-apk` reusable-workflow call in `.github/workflows/build-android-debug-apk.yml` with a normal job that runs directly in this repository.
+2. Added runtime validation for `DEBUG_KEYSTORE_BASE64`, `DEBUG_KEYSTORE_PASSWORD`, `DEBUG_KEY_ALIAS`, and `DEBUG_KEY_PASSWORD` so missing secrets fail after the job starts instead of during workflow evaluation.
+3. Added debug-signing property support to `app/build.gradle.kts`; CI can now inject a decoded keystore path and credentials through `ORG_GRADLE_PROJECT_*` environment variables.
+4. Updated README CI notes to document the new self-contained signed debug flow.
+
+### Why this matters
+- The previous caller workflow still depended on GitHub successfully resolving an external reusable workflow before any jobs could start.
+- If that external resolution or policy evaluation fails, GitHub shows the same `0s`/no-jobs symptom as other workflow-evaluation failures.
+- By keeping the signed build job local, GitHub only needs to parse this repository's workflow before starting jobs, which is more robust and easier to debug.
+
+### Validation notes
+- Static YAML inspection confirmed the workflow structure is valid after the rewrite.
+- Full Gradle execution from this environment may still be blocked by remote dependency access, so the most important follow-up is to re-run the GitHub Actions workflow on GitHub itself.
+
+### Recommended next check
+1. Re-run the `Android Validation` workflow on GitHub and confirm that `baseline-build` starts.
+2. Confirm that `signed-debug-apk` also starts; if secrets are missing, it should now fail inside the `Validate signing secrets` step instead of failing at workflow start.
