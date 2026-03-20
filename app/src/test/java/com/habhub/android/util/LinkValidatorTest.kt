@@ -18,6 +18,12 @@ class LinkValidatorTest {
     }
 
     @Test
+    fun invalidLinks() {
+        assertFalse(LinkValidator.isValidWebUrl("not a url"))
+        assertFalse(LinkValidator.isValidAppLink("   "))
+    }
+
+    @Test
     fun validTime() {
         assertTrue(LinkValidator.isValidTime("09:30"))
         assertFalse(LinkValidator.isValidTime("25:99"))

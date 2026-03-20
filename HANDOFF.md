@@ -86,3 +86,23 @@
 ### Recommended next check
 1. Re-run the `Android Validation` workflow on GitHub and confirm that `baseline-build` starts.
 2. Confirm that `signed-debug-apk` also starts; if secrets are missing, it should now fail inside the `Validate signing secrets` step instead of failing at workflow start.
+
+## 2026-03-20 follow-up 3: LinkValidator unit test build failure fixed
+
+### What changed
+1. Reworked `app/src/main/java/com/habhub/android/util/LinkValidator.kt` to use `java.net.URI` instead of `android.net.Uri`.
+2. Kept the existing web/app link validation rules, but made them safe for plain JVM unit tests.
+3. Expanded `app/src/test/java/com/habhub/android/util/LinkValidatorTest.kt` with malformed-input coverage.
+
+### Why this mattered
+- `LinkValidatorTest` runs under `testDebugUnitTest`, which uses the local JVM test environment rather than an instrumented Android runtime.
+- Referencing `android.net.Uri.parse(...)` in that path causes the classic "Method ... not mocked" runtime failure during unit tests.
+- Switching to `java.net.URI` removes the Android framework dependency from this validator and fixes the CI failure mode reported on 2026-03-20.
+
+### Validation notes
+- The root-cause analysis matches the failing stack location in `LinkValidatorTest.kt` from CI.
+- Full local Gradle verification in this container is currently blocked because no Android SDK path is configured (`ANDROID_HOME`/`ANDROID_SDK_ROOT` unset and no `local.properties` with `sdk.dir`).
+
+### Recommended next check
+1. Re-run `./gradlew testDebugUnitTest assembleDebug` in CI or in a local environment with a configured Android SDK.
+2. If the same job still fails, inspect the generated test report for any additional JVM-only utility classes that still depend on Android framework APIs.
