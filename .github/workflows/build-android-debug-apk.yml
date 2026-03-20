@@ -11,6 +11,9 @@ on:
       - main
       - master
 
+permissions:
+  contents: read
+
 jobs:
   baseline-build:
     name: Baseline Gradle validation (no signing secrets)
@@ -26,7 +29,10 @@ jobs:
         run: ./gradlew testDebugUnitTest assembleDebug
 
   signed-debug-apk:
-    name: Signed debug APK (when secrets exist)
+    name: Signed debug APK (reusable workflow validates secrets)
+    # Do not add a job-level `if:` that reads `secrets.*` here.
+    # GitHub evaluates reusable-workflow jobs before those secrets can be
+    # used in `jobs.<job_id>.if`, which causes the workflow to fail at 0s.
     uses: Josh-Temple/Ingrain/.github/workflows/reusable-android-debug-apk.yml@v1
     with:
       app_module: app
