@@ -49,3 +49,19 @@
 1. Re-run the `Android Validation` workflow in GitHub Actions and confirm that the workflow now evaluates successfully.
 2. If signing secrets are missing, expect the reusable workflow to fail in its own validation path because `allow_ephemeral_signing` remains `false`.
 
+
+## 2026-03-20 follow-up: workflow hardening and remaining pinning task
+
+### What changed
+1. Added `permissions: contents: read` to `.github/workflows/build-android-debug-apk.yml` so the caller workflow declares the minimum repository scope it needs.
+2. Renamed the reusable workflow job to make it explicit that secret validation happens inside the reusable workflow, not in the caller.
+3. Added an inline comment in the workflow explaining why `jobs.<job_id>.if` must not reference `secrets.*` for this reusable workflow call.
+4. Updated README CI notes with the exact evaluation failure mode and the remaining follow-up for immutable ref pinning.
+
+### Investigation notes
+- The failure pattern matched GitHub Actions workflow-evaluation failure: run duration `0s`, no jobs planned, and the reusable-workflow caller previously referenced `secrets.*` inside a job-level `if:`.
+- GitHub's context-availability rules allow `secrets` for `jobs.<job_id>.secrets.<secret_id>`, but not for `jobs.<job_id>.if`, which is why the earlier form failed before execution.
+- Attempted to resolve the reusable workflow tag (`@v1`) to an immutable commit SHA from this environment, but outbound access to `https://github.com/Josh-Temple/Ingrain.git` returned `CONNECT tunnel failed, response 403`.
+
+### Recommended next task
+1. From a network-enabled environment, resolve `Josh-Temple/Ingrain/.github/workflows/reusable-android-debug-apk.yml@v1` to its exact commit SHA and replace the tag ref with that SHA for supply-chain immutability.
