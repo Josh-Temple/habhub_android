@@ -33,3 +33,34 @@
 1. Run `./gradlew assembleDebug` and `./gradlew testDebugUnitTest` in Android Studio or CI with JDK 17 and normal Google Maven access.
 2. If CI still uses a newer system JDK, export `JAVA17_HOME` explicitly before invoking `gradlew`.
 3. Consider adding CI preflight output (`java -version`) so future toolchain drift is visible immediately.
+
+## 2026-03-20 workflow fix: signed debug reusable workflow evaluation
+
+### What changed
+1. Removed the job-level `if:` from `.github/workflows/build-android-debug-apk.yml` for `signed-debug-apk`.
+2. Kept the existing reusable workflow invocation, `with:` inputs, and `secrets:` forwarding unchanged.
+3. Updated README CI notes so they reflect that signing readiness is now enforced inside the reusable workflow rather than the caller workflow.
+
+### Why this matters
+- GitHub Actions does not allow using `secrets.*` in that job-level `if:` during workflow evaluation for this case, so the workflow could fail before jobs were even planned.
+- By always calling the reusable workflow, parse/evaluation succeeds and the reusable workflow can perform its own signing readiness checks.
+
+### Recommended next check
+1. Re-run the `Android Validation` workflow in GitHub Actions and confirm that the workflow now evaluates successfully.
+2. If signing secrets are missing, expect the reusable workflow to fail in its own validation path because `allow_ephemeral_signing` remains `false`.
+
+## 2026-03-20 workflow fix: reusable workflow ref resolution
+
+### What changed
+1. Replaced `Josh-Temple/Ingrain/.github/workflows/reusable-android-debug-apk.yml@v1` with the current valid commit SHA `56019b0963e5970fba0f73e6591c9c8f2fb11cff`.
+2. Left the caller-side `with:` inputs, `secrets:` forwarding, and `allow_ephemeral_signing: false` behavior unchanged.
+3. Updated README CI notes to explain that the previous failure after merge was caused by an invalid reusable workflow ref, not by the secrets handoff itself.
+
+### Root cause confirmed
+- GitHub Actions run `#59` on `main` failed with: `failed to fetch workflow: reference to workflow should be either a valid branch, tag, or commit`.
+- The referenced repository `Josh-Temple/Ingrain` exposes `main`, but the reusable workflow commit history for `.github/workflows/reusable-android-debug-apk.yml` shows commit `56019b0963e5970fba0f73e6591c9c8f2fb11cff` and no `v1` ref was available at investigation time.
+
+### Recommended follow-up
+1. Re-run `Android Validation` to confirm the workflow now gets past reusable-workflow resolution.
+2. If you want a stable semantic ref later, create a `v1` tag in `Josh-Temple/Ingrain` that points to the intended reusable workflow commit, then update this repo back to `@v1`.
+
