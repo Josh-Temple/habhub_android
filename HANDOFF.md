@@ -33,3 +33,19 @@
 1. Run `./gradlew assembleDebug` and `./gradlew testDebugUnitTest` in Android Studio or CI with JDK 17 and normal Google Maven access.
 2. If CI still uses a newer system JDK, export `JAVA17_HOME` explicitly before invoking `gradlew`.
 3. Consider adding CI preflight output (`java -version`) so future toolchain drift is visible immediately.
+
+## 2026-03-20 workflow fix: signed debug reusable workflow evaluation
+
+### What changed
+1. Removed the job-level `if:` from `.github/workflows/build-android-debug-apk.yml` for `signed-debug-apk`.
+2. Kept the existing reusable workflow invocation, `with:` inputs, and `secrets:` forwarding unchanged.
+3. Updated README CI notes so they reflect that signing readiness is now enforced inside the reusable workflow rather than the caller workflow.
+
+### Why this matters
+- GitHub Actions does not allow using `secrets.*` in that job-level `if:` during workflow evaluation for this case, so the workflow could fail before jobs were even planned.
+- By always calling the reusable workflow, parse/evaluation succeeds and the reusable workflow can perform its own signing readiness checks.
+
+### Recommended next check
+1. Re-run the `Android Validation` workflow in GitHub Actions and confirm that the workflow now evaluates successfully.
+2. If signing secrets are missing, expect the reusable workflow to fail in its own validation path because `allow_ephemeral_signing` remains `false`.
+

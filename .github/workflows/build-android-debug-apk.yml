@@ -27,7 +27,6 @@ jobs:
 
   signed-debug-apk:
     name: Signed debug APK (when secrets exist)
-    if: ${{ secrets.DEBUG_KEYSTORE_BASE64 != '' && secrets.DEBUG_KEYSTORE_PASSWORD != '' && secrets.DEBUG_KEY_ALIAS != '' && secrets.DEBUG_KEY_PASSWORD != '' }}
     uses: Josh-Temple/Ingrain/.github/workflows/reusable-android-debug-apk.yml@v1
     with:
       app_module: app
